@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.expediagroup</groupId>
+    <artifactId>eg-oss-parent</artifactId>
+    <version>1.3.1</version>
+  </parent>
+
+  <artifactId>hiveberg</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <inceptionYear>2020</inceptionYear>
+
+  <properties>
+    <iceberg.version>0.7.1-incubating</iceberg.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.hive</groupId>
+      <artifactId>hive-serde</artifactId>
+      <version>2.3.4</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-client</artifactId>
+      <version>2.8.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-api</artifactId>
+      <version>${iceberg.version}</version>
+      <classifier>all</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-core</artifactId>
+      <version>${iceberg.version}</version>
+      <classifier>all</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-data</artifactId>
+      <version>${iceberg.version}</version>
+      <classifier>all</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-parquet</artifactId>
+      <version>${iceberg.version}</version>
+      <classifier>all</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.avro</groupId>
+      <artifactId>avro</artifactId>
+      <version>1.9.2</version>
+    </dependency>
+    <dependency>
+      <groupId>com.klarna</groupId>
+      <artifactId>hiverunner</artifactId>
+      <version>4.1.0</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+</project>
