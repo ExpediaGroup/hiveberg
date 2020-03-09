@@ -18,6 +18,7 @@ package com.expediagroup.hiveberg;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
@@ -30,16 +31,24 @@ import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
+import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Files;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.avro.AvroSchemaUtil;
+import org.apache.iceberg.data.IcebergGenerics;
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.data.avro.DataReader;
+import org.apache.iceberg.data.parquet.GenericParquetReaders;
+import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.orc.ORC;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.shaded.org.apache.avro.generic.GenericData;
 import org.slf4j.Logger;
@@ -54,23 +63,19 @@ public class IcebergInputFormat implements InputFormat {
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-    String tableDir = StringUtils.substringAfter(job.get("location"), "file:");
-
     //Change this to use whichever Catalog the table was made with i.e. HiveCatalog instead etc.
     HadoopTables tables = new HadoopTables(job);
+    String tableDir = StringUtils.substringAfter(job.get("location"), "file:");
     table = tables.load(tableDir);
-    TableScan scan = table.newScan();
 
-    //Change this to add filters from query
-    CloseableIterable<FileScanTask> files = scan.planFiles();
-    List<DataFile> dataFiles = getDataFiles(files);
-    return createSplits(dataFiles);
+    List<CombinedScanTask> tasks = Lists.newArrayList(table.newScan().planTasks());
+    return createSplits(tasks);
   }
 
-  private InputSplit[] createSplits(List<DataFile> dataFiles) {
-    InputSplit[] splits = new InputSplit[dataFiles.size()];
-    for (int i = 0; i < dataFiles.size(); i++) {
-      splits[i] = new IcebergSplit(dataFiles.get(i));
+  private InputSplit[] createSplits(List<CombinedScanTask> tasks) {
+    InputSplit[] splits = new InputSplit[tasks.size()];
+    for (int i = 0; i < splits.length; i++) {
+      splits[i] = new IcebergSplit(tasks.get(i));
     }
     return splits;
   }
@@ -80,12 +85,15 @@ public class IcebergInputFormat implements InputFormat {
     return new IcebergRecordReader(split, job);
   }
 
-  public class IcebergRecordReader implements RecordReader<Void, AvroGenericRecordWritable> {
+  public class IcebergRecordReader implements RecordReader<Void, IcebergWritable> {
     private JobConf context;
     private IcebergSplit split;
-    private Iterator<GenericData.Record> recordIterator;
     private Schema icebergSchema;
-    private org.apache.avro.Schema avroSchema;
+
+    private Iterator<FileScanTask> tasks;
+    private CloseableIterable<Record> reader;
+    private Iterator<Record> recordIterator;
+    private Record currentRecord;
 
     public IcebergRecordReader(InputSplit split, JobConf conf) throws IOException {
       this.split = (IcebergSplit) split;
@@ -94,21 +102,49 @@ public class IcebergInputFormat implements InputFormat {
     }
 
     private void initialise() {
-      //TODO Build different readers depending on file type
       icebergSchema = table.schema();
-      avroSchema = getAvroSchema(AvroSchemaUtil.convert(icebergSchema, "temp").toString().replaceAll("-", "_"));
+      CombinedScanTask task = split.getTask();
+      tasks = task.files().iterator();
+      nextTask();
+    }
 
-      CloseableIterable<GenericData.Record> reader = buildParquetReader(Files.localInput(split.getFile().path().toString()), icebergSchema, false);
+    private void nextTask(){
+      FileScanTask currentTask = tasks.next();
+      DataFile file = currentTask.file();
+      InputFile inputFile = HadoopInputFile.fromLocation(file.path(), context);
+      Schema tableSchema = table.schema();
+      boolean reuseContainers = true; // FIXME: read from config
+
+      switch (file.format()) {
+        case AVRO:
+          reader = buildAvroReader(currentTask, inputFile, tableSchema, reuseContainers);
+          break;
+        case ORC:
+          reader = buildOrcReader(currentTask, inputFile, tableSchema, reuseContainers);
+          break;
+        case PARQUET:
+          reader = buildParquetReader(currentTask, inputFile, tableSchema, reuseContainers);
+          break;
+
+        default:
+          throw new UnsupportedOperationException(String.format("Cannot read %s file: %s", file.format().name(), file.path()));
+      }
+
       recordIterator = reader.iterator();
     }
 
     @Override
-    public boolean next(Void key, AvroGenericRecordWritable value) {
+    public boolean next(Void key, IcebergWritable value) {
       if (recordIterator.hasNext()) {
-        GenericData.Record shadedRecord = recordIterator.next();
-        org.apache.avro.generic.GenericData.Record record = getUnshadedRecord(avroSchema, shadedRecord);
-        value.setRecord(record);
+        currentRecord = recordIterator.next();
+        value.setRecord(currentRecord);
         return true;
+      }
+
+      if(tasks.hasNext()){
+        nextTask();
+        currentRecord = recordIterator.next();
+        value.setRecord(currentRecord);
       }
       return false;
     }
@@ -119,9 +155,10 @@ public class IcebergInputFormat implements InputFormat {
     }
 
     @Override
-    public AvroGenericRecordWritable createValue() {
-      AvroGenericRecordWritable record = new AvroGenericRecordWritable();
-      record.setFileSchema(avroSchema); //Would the schema ever change between records? Maybe, so this might need to be set in the next() method too
+    public IcebergWritable createValue() {
+      IcebergWritable record = new IcebergWritable();
+      record.setRecord(currentRecord);
+      record.setSchema(table.schema());
       return record;
     }
 
@@ -141,12 +178,12 @@ public class IcebergInputFormat implements InputFormat {
     }
   }
 
-  private static class IcebergSplit implements Writable, InputSplit {
+  private static class IcebergSplit implements InputSplit {
 
-    private DataFile file;
+    private CombinedScanTask task;
 
-    IcebergSplit(DataFile file) {
-      this.file = file;
+    IcebergSplit(CombinedScanTask task) {
+      this.task = task;
     }
 
     @Override
@@ -169,14 +206,17 @@ public class IcebergInputFormat implements InputFormat {
 
     }
 
-    public DataFile getFile() {
-      return file;
+    public CombinedScanTask getTask() {
+      return task;
     }
   }
 
   // FIXME: use generic reader function
-  private static CloseableIterable buildParquetReader(InputFile file, Schema schema, boolean reuseContainers) {
-    Parquet.ReadBuilder builder = Parquet.read(file).project(schema);
+  private static CloseableIterable buildAvroReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+    Avro.ReadBuilder builder = Avro.read(file)
+        .createReaderFunc(DataReader::create)
+        .project(schema)
+        .split(task.start(), task.length());
 
     if (reuseContainers) {
       builder.reuseContainers();
@@ -185,27 +225,27 @@ public class IcebergInputFormat implements InputFormat {
     return builder.build();
   }
 
-  private org.apache.avro.Schema getAvroSchema(String stringSchema) {
-    org.apache.avro.Schema.Parser parser = new org.apache.avro.Schema.Parser();
-    return parser.parse(stringSchema);
+  // FIXME: use generic reader function
+  private static CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+    ORC.ReadBuilder builder = ORC.read(file)
+//            .createReaderFunc() // FIXME: implement
+        .schema(schema)
+        .split(task.start(), task.length());
+
+    return builder.build();
   }
 
-  private List<DataFile> getDataFiles(CloseableIterable<FileScanTask> files) {
-    List<DataFile> dataFiles = Lists.newArrayList();
-    Iterator<FileScanTask> iterator = files.iterator();
-    while(iterator.hasNext()){
-      dataFiles.add(iterator.next().file());
-    }
-    return dataFiles;
-  }
+  // FIXME: use generic reader function
+  private static CloseableIterable buildParquetReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+    Parquet.ReadBuilder builder = Parquet.read(file)
+        .createReaderFunc(messageType -> GenericParquetReaders.buildReader(schema, messageType))
+        .project(schema)
+        .split(task.start(), task.length());
 
-  private org.apache.avro.generic.GenericData.Record getUnshadedRecord(org.apache.avro.Schema schema, GenericData.Record shadedRecord) {
-    List<org.apache.iceberg.shaded.org.apache.avro.Schema.Field> fields = shadedRecord.getSchema().getFields();
-    GenericRecordBuilder builder = new GenericRecordBuilder(schema);
-    for (org.apache.iceberg.shaded.org.apache.avro.Schema.Field field : fields) {
-      Object value = shadedRecord.get(field.name());
-      builder.set(field.name(), value);
+    if (reuseContainers) {
+      builder.reuseContainers();
     }
+
     return builder.build();
   }
 }

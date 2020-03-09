@@ -16,17 +16,25 @@
 package com.expediagroup.hiveberg;
 
 import static org.apache.iceberg.types.Types.NestedField.optional;
+import static org.junit.Assert.assertEquals;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+import com.google.common.collect.Lists;
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.mapred.InputSplit;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.RecordReader;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.data.Record;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
 import org.junit.After;
@@ -45,6 +53,7 @@ public class TestIcebergInputFormat {
   private HiveShell shell;
 
   private File tableLocation;
+  private Table table;
 
   @Before
   public void before() throws IOException {
@@ -53,35 +62,78 @@ public class TestIcebergInputFormat {
         optional(2, "salary", Types.LongType.get()));
     PartitionSpec spec = PartitionSpec.unpartitioned();
     HadoopTables tables = new HadoopTables();
-    Table table = tables.create(schema, spec, tableLocation.getAbsolutePath());
+    table = tables.create(schema, spec, tableLocation.getAbsolutePath());
 
     DataFile fileA = DataFiles
         .builder(spec)
         .withPath("src/test/resources/test-table/data/00000-1-c7557bc3-ae0d-46fb-804e-e9806abf81c7-00000.parquet")
-        .withFileSizeInBytes(0)
+        .withFileSizeInBytes(1024)
         .withRecordCount(3) // needs at least one record or else metrics will filter it out
         .build();
+
     table.newAppend().appendFile(fileA).commit();
   }
 
   @Test
-  public void testGetSplits() {
+  public void testInputFormat() {
     shell.execute("CREATE DATABASE source_db");
-    shell
-        .execute(new StringBuilder()
+    shell.execute(new StringBuilder()
             .append("CREATE TABLE source_db.table_a ")
-            // .append("(name STRING, salary INT) ")
-            .append("ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' ")
+            //.append("(name STRING, salary INT) ")
+            .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
             .append("STORED AS ")
             .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
             .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
             .append("LOCATION '")
             .append(tableLocation.getAbsolutePath())
-            .append(
-                "' TBLPROPERTIES ('avro.schema.literal' = '{\"namespace\":\"source_db\",\"type\":\"record\",\"name\":\"table_a\",\"fields\":[{\"name\":\"name\",\"type\":[\"null\",\"string\"],\"default\":null,\"field_id\":1},{\"name\":\"salary\",\"type\":[\"null\",\"long\"],\"default\":null,\"field_id\":2}]}')")
+            .append("'")
             .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a WHERE salary=3000");
+    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
+  }
+
+  @Test
+  public void testGetSplits() throws IOException {
+    IcebergInputFormat format = new IcebergInputFormat();
+    JobConf conf = new JobConf();
+    conf.set("location", "file:" + tableLocation);
+    InputSplit[] splits = format.getSplits(conf, 1);
+    assertEquals(splits.length, 1);
+  }
+
+  @Test
+  public void testGetRecordReader() throws IOException {
+    IcebergInputFormat format = new IcebergInputFormat();
+    JobConf conf = new JobConf();
+    conf.set("location", "file:" + tableLocation);
+    InputSplit[] splits = format.getSplits(conf, 1);
+    RecordReader reader = format.getRecordReader(splits[0], conf, null);
+    IcebergWritable value = (IcebergWritable) reader.createValue();
+
+    List<Record> records = Lists.newArrayList();
+    boolean unfinished = true;
+    while(unfinished) {
+      if (reader.next(null, value)) {
+        records.add(value.getRecord().copy());
+      } else  {
+        unfinished = false;
+      }
+    }
+    assertEquals(3, records.size() );
+  }
+
+  @Test
+  public void testDeserializer() throws IOException, SerDeException {
+    IcebergInputFormat format = new IcebergInputFormat();
+    JobConf conf = new JobConf();
+    conf.set("location", "file:" + tableLocation);
+    InputSplit[] splits = format.getSplits(conf, 1);
+    RecordReader reader = format.getRecordReader(splits[0], conf, null);
+    IcebergWritable value = (IcebergWritable) reader.createValue();
+    reader.next(null, value);
+
+    IcebergSerDe serde = new IcebergSerDe();
+    Object row = serde.deserialize(value);
   }
 
   @After
