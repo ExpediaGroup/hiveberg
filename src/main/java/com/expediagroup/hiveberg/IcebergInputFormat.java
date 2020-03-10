@@ -18,6 +18,8 @@ package com.expediagroup.hiveberg;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -62,11 +64,18 @@ public class IcebergInputFormat implements InputFormat {
   private Table table;
 
   @Override
-  public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-    //Change this to use whichever Catalog the table was made with i.e. HiveCatalog instead etc.
+  public InputSplit[] getSplits(JobConf job, int numSplits) {
+    //TODO: Change this to use whichever Catalog the table was made with i.e. HiveCatalog instead etc.
     HadoopTables tables = new HadoopTables(job);
-    String tableDir = StringUtils.substringAfter(job.get("location"), "file:");
-    table = tables.load(tableDir);
+    String tableDir = job.get("location");
+
+    URI location = null;
+    try {
+      location = new URI(tableDir);
+    } catch (URISyntaxException e) {
+      LOG.error("Unable to create URI location for table location.");
+    }
+    table = tables.load(location.getPath());
 
     List<CombinedScanTask> tasks = Lists.newArrayList(table.newScan().planTasks());
     return createSplits(tasks);
@@ -74,7 +83,7 @@ public class IcebergInputFormat implements InputFormat {
 
   private InputSplit[] createSplits(List<CombinedScanTask> tasks) {
     InputSplit[] splits = new InputSplit[tasks.size()];
-    for (int i = 0; i < splits.length; i++) {
+    for (int i = 0; i < tasks.size(); i++) {
       splits[i] = new IcebergSplit(tasks.get(i));
     }
     return splits;
@@ -88,7 +97,6 @@ public class IcebergInputFormat implements InputFormat {
   public class IcebergRecordReader implements RecordReader<Void, IcebergWritable> {
     private JobConf context;
     private IcebergSplit split;
-    private Schema icebergSchema;
 
     private Iterator<FileScanTask> tasks;
     private CloseableIterable<Record> reader;
@@ -102,9 +110,7 @@ public class IcebergInputFormat implements InputFormat {
     }
 
     private void initialise() {
-      icebergSchema = table.schema();
-      CombinedScanTask task = split.getTask();
-      tasks = task.files().iterator();
+      tasks = split.getTask().files().iterator();
       nextTask();
     }
 
@@ -115,21 +121,7 @@ public class IcebergInputFormat implements InputFormat {
       Schema tableSchema = table.schema();
       boolean reuseContainers = true; // FIXME: read from config
 
-      switch (file.format()) {
-        case AVRO:
-          reader = buildAvroReader(currentTask, inputFile, tableSchema, reuseContainers);
-          break;
-        case ORC:
-          reader = buildOrcReader(currentTask, inputFile, tableSchema, reuseContainers);
-          break;
-        case PARQUET:
-          reader = buildParquetReader(currentTask, inputFile, tableSchema, reuseContainers);
-          break;
-
-        default:
-          throw new UnsupportedOperationException(String.format("Cannot read %s file: %s", file.format().name(), file.path()));
-      }
-
+      reader = IcebergReaderFactory.getReader(file, currentTask, inputFile, tableSchema, reuseContainers);
       recordIterator = reader.iterator();
     }
 
@@ -211,41 +203,4 @@ public class IcebergInputFormat implements InputFormat {
     }
   }
 
-  // FIXME: use generic reader function
-  private static CloseableIterable buildAvroReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
-    Avro.ReadBuilder builder = Avro.read(file)
-        .createReaderFunc(DataReader::create)
-        .project(schema)
-        .split(task.start(), task.length());
-
-    if (reuseContainers) {
-      builder.reuseContainers();
-    }
-
-    return builder.build();
-  }
-
-  // FIXME: use generic reader function
-  private static CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
-    ORC.ReadBuilder builder = ORC.read(file)
-//            .createReaderFunc() // FIXME: implement
-        .schema(schema)
-        .split(task.start(), task.length());
-
-    return builder.build();
-  }
-
-  // FIXME: use generic reader function
-  private static CloseableIterable buildParquetReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
-    Parquet.ReadBuilder builder = Parquet.read(file)
-        .createReaderFunc(messageType -> GenericParquetReaders.buildReader(schema, messageType))
-        .project(schema)
-        .split(task.start(), task.length());
-
-    if (reuseContainers) {
-      builder.reuseContainers();
-    }
-
-    return builder.build();
-  }
 }

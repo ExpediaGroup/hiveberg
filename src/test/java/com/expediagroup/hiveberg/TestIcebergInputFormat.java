@@ -79,7 +79,6 @@ public class TestIcebergInputFormat {
     shell.execute("CREATE DATABASE source_db");
     shell.execute(new StringBuilder()
             .append("CREATE TABLE source_db.table_a ")
-            //.append("(name STRING, salary INT) ")
             .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
             .append("STORED AS ")
             .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
@@ -120,20 +119,6 @@ public class TestIcebergInputFormat {
       }
     }
     assertEquals(3, records.size() );
-  }
-
-  @Test
-  public void testDeserializer() throws IOException, SerDeException {
-    IcebergInputFormat format = new IcebergInputFormat();
-    JobConf conf = new JobConf();
-    conf.set("location", "file:" + tableLocation);
-    InputSplit[] splits = format.getSplits(conf, 1);
-    RecordReader reader = format.getRecordReader(splits[0], conf, null);
-    IcebergWritable value = (IcebergWritable) reader.createValue();
-    reader.next(null, value);
-
-    IcebergSerDe serde = new IcebergSerDe();
-    Object row = serde.deserialize(value);
   }
 
   @After

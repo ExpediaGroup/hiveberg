@@ -1,6 +1,5 @@
 package com.expediagroup.hiveberg;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -23,21 +22,21 @@ public class IcebergSerDe extends AbstractSerDe {
 
   private Schema schema;
   private TableMetadata metadata;
-  private ObjectInspector oi;
+  private ObjectInspector inspector;
   private List<String> columnNames;
   private List<TypeInfo> columnTypes;
 
   @Override
   public void initialize(@Nullable Configuration configuration, Properties properties) throws SerDeException {
+    //TODO Add methods to dynamically find most recent metadata
     String tableDir = properties.getProperty("location") + "/metadata/v2.metadata.json";
     this.metadata = TableMetadataParser.read(new HadoopFileIO(configuration), tableDir);
     this.schema = metadata.schema();
 
     try {
-      IcebergObjectInspectorGenerator ioig = new IcebergObjectInspectorGenerator(schema);
-      this.oi = ioig.createObjectInspector();
+      this.inspector = new IcebergObjectInspectorGenerator().createObjectInspector(schema);
     } catch (Exception e) {
-      //Error handling
+      //TODO Error handling
     }
   }
 
@@ -72,6 +71,6 @@ public class IcebergSerDe extends AbstractSerDe {
 
   @Override
   public ObjectInspector getObjectInspector() throws SerDeException {
-    return oi;
+    return inspector;
   }
 }

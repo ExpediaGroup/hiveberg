@@ -16,9 +16,9 @@ public class TestIcebergObjectInspectorGenerator {
   public void testGetColumnNames() throws Exception {
     Schema schema = new Schema(optional(1, "name", Types.StringType.get()),
         optional(2, "salary", Types.LongType.get()));
-    IcebergObjectInspectorGenerator oi = new IcebergObjectInspectorGenerator(schema);
+    IcebergObjectInspectorGenerator oi = new IcebergObjectInspectorGenerator();
 
-    List<String> fieldsNames = oi.setColumnNames();
+    List<String> fieldsNames = oi.setColumnNames(schema);
     assertEquals(fieldsNames.size(), 2);
   }
 }
