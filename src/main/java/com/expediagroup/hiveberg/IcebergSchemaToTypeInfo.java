@@ -71,7 +71,7 @@ public class IcebergSchemaToTypeInfo {
       case MAP:
         return generateMapTypeInfo((Types.MapType)type);
       default:
-        throw new Exception("Can't map Iceberg type to Hive TypeInfo"); //Create specific Iceberg exception
+        throw new Exception("Can't map Iceberg type to Hive TypeInfo: '" + type.typeId() + "'"); //Create specific Iceberg exception
     }
   }
 

@@ -50,13 +50,13 @@ public class IcebergObjectInspectorGenerator {
             createObjectInspectorWorker(mti.getMapValueTypeInfo()));
       case STRUCT:
         StructTypeInfo sti = (StructTypeInfo)typeInfo;
-        ArrayList<ObjectInspector> ois = new ArrayList<>(sti.getAllStructFieldTypeInfos().size());
+        List<ObjectInspector> ois = new ArrayList<>(sti.getAllStructFieldTypeInfos().size());
         for(TypeInfo structTypeInfos : sti.getAllStructFieldTypeInfos()) {
           ois.add(createObjectInspectorWorker(structTypeInfos));
         }
         return ObjectInspectorFactory.getStandardStructObjectInspector(sti.getAllStructFieldNames(), ois);
       default:
-        throw new Exception("Couldn't create Object Inspector");
+        throw new Exception("Couldn't create Object Inspector for category: '" + typeCategory + "'");
     }
   }
 
