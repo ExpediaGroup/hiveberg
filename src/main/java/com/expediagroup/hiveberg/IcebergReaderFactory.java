@@ -47,7 +47,7 @@ class IcebergReaderFactory {
   }
 
   // FIXME: use generic reader function
-  private  CloseableIterable buildAvroReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+  private CloseableIterable buildAvroReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     Avro.ReadBuilder builder = Avro.read(file)
         .createReaderFunc(DataReader::create)
         .project(schema)
@@ -61,7 +61,7 @@ class IcebergReaderFactory {
   }
 
   // FIXME: use generic reader function
-  private  CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+  private CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     ORC.ReadBuilder builder = ORC.read(file)
 //            .createReaderFunc() // FIXME: implement
         .schema(schema)

@@ -73,6 +73,7 @@ class IcebergSchemaToTypeInfo {
           HiveDecimalUtils.validateParameter(precision, scale);
         } catch (Exception e) {
           //TODO Log that precision / scale isn't valid
+          throw e;
         }
         return TypeInfoFactory.getDecimalTypeInfo(precision, scale);
       case STRUCT:
