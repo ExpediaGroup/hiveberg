@@ -20,14 +20,9 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.avro.generic.GenericRecordBuilder;
-import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.hive.serde2.avro.AvroGenericRecordWritable;
-import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
@@ -36,23 +31,13 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
-import org.apache.iceberg.Files;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
-import org.apache.iceberg.avro.Avro;
-import org.apache.iceberg.avro.AvroSchemaUtil;
-import org.apache.iceberg.data.IcebergGenerics;
 import org.apache.iceberg.data.Record;
-import org.apache.iceberg.data.avro.DataReader;
-import org.apache.iceberg.data.parquet.GenericParquetReaders;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
-import org.apache.iceberg.orc.ORC;
-import org.apache.iceberg.parquet.Parquet;
-import org.apache.iceberg.shaded.org.apache.avro.generic.GenericData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,7 +58,7 @@ public class IcebergInputFormat implements InputFormat {
     try {
       location = new URI(tableDir);
     } catch (URISyntaxException e) {
-      LOG.error("Unable to create URI location for table location: '" + tableDir + "'");
+      LOG.error("Unable to create URI for table location: '" + tableDir + "'");
     }
     table = tables.load(location.getPath());
 
@@ -121,7 +106,8 @@ public class IcebergInputFormat implements InputFormat {
       Schema tableSchema = table.schema();
       boolean reuseContainers = true; // FIXME: read from config
 
-      reader = IcebergReaderFactory.getReader(file, currentTask, inputFile, tableSchema, reuseContainers);
+      IcebergReaderFactory readerFactory = new IcebergReaderFactory();
+      reader = readerFactory.getReader(file, currentTask, inputFile, tableSchema, reuseContainers);
       recordIterator = reader.iterator();
     }
 

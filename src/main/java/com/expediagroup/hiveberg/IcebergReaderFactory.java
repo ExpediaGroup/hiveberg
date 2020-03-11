@@ -1,3 +1,18 @@
+/**
+ * Copyright (C) 2020 Expedia, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.expediagroup.hiveberg;
 
 import org.apache.iceberg.DataFile;
@@ -12,13 +27,12 @@ import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.orc.ORC;
 import org.apache.iceberg.parquet.Parquet;
 
-public class IcebergReaderFactory {
+class IcebergReaderFactory {
 
-  public IcebergReaderFactory() {
-
+  IcebergReaderFactory() {
   }
 
-  public static CloseableIterable<Record> getReader(DataFile file, FileScanTask currentTask, InputFile inputFile, Schema tableSchema, boolean reuseContainers) {
+  public CloseableIterable<Record> getReader(DataFile file, FileScanTask currentTask, InputFile inputFile, Schema tableSchema, boolean reuseContainers) {
     switch (file.format()) {
       case AVRO:
         return buildAvroReader(currentTask, inputFile, tableSchema, reuseContainers);
@@ -33,7 +47,7 @@ public class IcebergReaderFactory {
   }
 
   // FIXME: use generic reader function
-  private static CloseableIterable buildAvroReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+  private  CloseableIterable buildAvroReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     Avro.ReadBuilder builder = Avro.read(file)
         .createReaderFunc(DataReader::create)
         .project(schema)
@@ -47,7 +61,7 @@ public class IcebergReaderFactory {
   }
 
   // FIXME: use generic reader function
-  private static CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+  private  CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     ORC.ReadBuilder builder = ORC.read(file)
 //            .createReaderFunc() // FIXME: implement
         .schema(schema)
@@ -57,7 +71,7 @@ public class IcebergReaderFactory {
   }
 
   // FIXME: use generic reader function
-  private static CloseableIterable buildParquetReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+  private CloseableIterable buildParquetReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     Parquet.ReadBuilder builder = Parquet.read(file)
         .createReaderFunc(messageType -> GenericParquetReaders.buildReader(schema, messageType))
         .project(schema)
