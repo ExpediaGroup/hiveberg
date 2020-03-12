@@ -18,6 +18,7 @@ package com.expediagroup.hiveberg;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
@@ -33,8 +34,7 @@ class IcebergObjectInspectorGenerator {
 
   protected ObjectInspector createObjectInspector(Schema schema) throws Exception {
     List<String> columnNames = setColumnNames(schema);
-    IcebergSchemaToTypeInfo converter = new IcebergSchemaToTypeInfo();
-    List<TypeInfo> columnTypes = converter.getColumnTypes(schema);
+    List<TypeInfo> columnTypes = IcebergSchemaToTypeInfo.getColumnTypes(schema);
 
     List<ObjectInspector> columnOIs = new ArrayList<>(columnTypes.size());
     for(int i = 0; i < columnTypes.size(); i++) {
@@ -67,7 +67,7 @@ class IcebergObjectInspectorGenerator {
         }
         return ObjectInspectorFactory.getStandardStructObjectInspector(sti.getAllStructFieldNames(), ois);
       default:
-        throw new Exception("Couldn't create Object Inspector for category: '" + typeCategory + "'");
+        throw new SerDeException("Couldn't create Object Inspector for category: '" + typeCategory + "'");
     }
   }
 

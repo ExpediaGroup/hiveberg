@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.hadoop.hive.serde.serdeConstants;
+import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.typeinfo.HiveDecimalUtils;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
@@ -31,7 +32,11 @@ import com.google.common.collect.ImmutableMap;
 /**
  * Class to convert Iceberg types to Hive TypeInfo
  */
-class IcebergSchemaToTypeInfo {
+final class IcebergSchemaToTypeInfo {
+
+  private IcebergSchemaToTypeInfo() {
+
+  }
 
   private static final ImmutableMap<Object, Object> primitiveTypeToTypeInfo = ImmutableMap.builder()
       .put(Types.BooleanType.get(), TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.BOOLEAN_TYPE_NAME))
@@ -44,7 +49,7 @@ class IcebergSchemaToTypeInfo {
       .put(Types.DateType.get(), TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.DATE_TYPE_NAME))
       .put(Types.TimestampType.withoutZone(), TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.TIMESTAMP_TYPE_NAME)).build();
 
-  public List<TypeInfo> getColumnTypes(Schema schema) throws Exception {
+  public static List<TypeInfo> getColumnTypes(Schema schema) throws Exception {
     List<Types.NestedField> fields = schema.columns();
     List<TypeInfo> types = new ArrayList<>(fields.size());
     for(Types.NestedField field: fields) {
@@ -53,7 +58,7 @@ class IcebergSchemaToTypeInfo {
     return types;
   }
 
-  private TypeInfo generateTypeInfo(Type type) throws Exception {
+  private static TypeInfo generateTypeInfo(Type type) throws Exception {
     if(primitiveTypeToTypeInfo.containsKey(type)){
       return (TypeInfo) primitiveTypeToTypeInfo.get(type);
     }
@@ -61,8 +66,7 @@ class IcebergSchemaToTypeInfo {
       case UUID:
         return TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.STRING_TYPE_NAME);
       case FIXED:
-        TypeInfoFactory.getPrimitiveTypeInfo("binary");
-        return null;
+        return TypeInfoFactory.getPrimitiveTypeInfo("binary");
       case TIME:
         return TypeInfoFactory.getPrimitiveTypeInfo("long");
       case DECIMAL:
@@ -82,17 +86,17 @@ class IcebergSchemaToTypeInfo {
       case MAP:
         return generateMapTypeInfo((Types.MapType)type);
       default:
-        throw new Exception("Can't map Iceberg type to Hive TypeInfo: '" + type.typeId() + "'"); //Create specific Iceberg exception
+        throw new SerDeException("Can't map Iceberg type to Hive TypeInfo: '" + type.typeId() + "'");
     }
   }
 
-  private TypeInfo generateMapTypeInfo(Types.MapType type) throws Exception {
+  private static TypeInfo generateMapTypeInfo(Types.MapType type) throws Exception {
     Type keyType = type.keyType();
     Type valueType = type.valueType();
     return TypeInfoFactory.getMapTypeInfo(generateTypeInfo(keyType), generateTypeInfo(valueType));
   }
 
-  private TypeInfo generateStructTypeInfo(Types.StructType type) throws Exception {
+  private static TypeInfo generateStructTypeInfo(Types.StructType type) throws Exception {
     List<Types.NestedField> fields = type.fields();
     List<String> fieldNames = new ArrayList<>(fields.size());
     List<TypeInfo> typeInfos = new ArrayList<>(fields.size());
@@ -104,7 +108,7 @@ class IcebergSchemaToTypeInfo {
     return TypeInfoFactory.getStructTypeInfo(fieldNames, typeInfos);
   }
 
-  private TypeInfo generateListTypeInfo(Types.ListType type) throws Exception {
+  private static TypeInfo generateListTypeInfo(Types.ListType type) throws Exception {
     return TypeInfoFactory.getListTypeInfo(generateTypeInfo(type.elementType()));
   }
 }

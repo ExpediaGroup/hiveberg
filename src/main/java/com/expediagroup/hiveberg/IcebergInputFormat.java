@@ -18,6 +18,7 @@ package com.expediagroup.hiveberg;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Iterator;
@@ -49,7 +50,7 @@ public class IcebergInputFormat implements InputFormat {
   private Table table;
 
   @Override
-  public InputSplit[] getSplits(JobConf job, int numSplits) {
+  public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
     //TODO: Change this to use whichever Catalog the table was made with i.e. HiveCatalog instead etc.
     HadoopTables tables = new HadoopTables(job);
     String tableDir = job.get("location");
@@ -58,7 +59,7 @@ public class IcebergInputFormat implements InputFormat {
     try {
       location = new URI(tableDir);
     } catch (URISyntaxException e) {
-      LOG.error("Unable to create URI for table location: '" + tableDir + "'");
+      throw new UncheckedIOException(new IOException("Unable to create URI for table location: '" + tableDir + "'"));
     }
     table = tables.load(location.getPath());
 
@@ -107,7 +108,7 @@ public class IcebergInputFormat implements InputFormat {
       boolean reuseContainers = true; // FIXME: read from config
 
       IcebergReaderFactory readerFactory = new IcebergReaderFactory();
-      reader = readerFactory.getReader(file, currentTask, inputFile, tableSchema, reuseContainers);
+      reader = readerFactory.createReader(file, currentTask, inputFile, tableSchema, reuseContainers);
       recordIterator = reader.iterator();
     }
 
@@ -123,6 +124,7 @@ public class IcebergInputFormat implements InputFormat {
         nextTask();
         currentRecord = recordIterator.next();
         value.setRecord(currentRecord);
+        return true;
       }
       return false;
     }

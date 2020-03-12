@@ -16,6 +16,7 @@
 package com.expediagroup.hiveberg;
 
 import static org.apache.iceberg.types.Types.NestedField.optional;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 import java.io.File;
@@ -87,6 +88,11 @@ public class TestIcebergInputFormat {
             .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
+
+    assertEquals(3, result.size());
+    assertArrayEquals(new Object[]{"Michael", 3000L}, result.get(0));
+    assertArrayEquals(new Object[]{"Andy", 3000L}, result.get(1));
+    assertArrayEquals(new Object[]{"Berta", 4000L}, result.get(2));
   }
 
   @Test
