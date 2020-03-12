@@ -80,7 +80,7 @@ public class TestIcebergSchemaToTypeInfo {
   }
 
   @Test
-  public void testGenerateStructTypeInfo() throws Exception {
+  public void testGenerateMapAndStructTypeInfo() throws Exception {
     List<String> names1 = new ArrayList<>(Arrays.asList("address", "city", "state", "zip"));
     List<TypeInfo> typeInfo1 = new ArrayList<>(Arrays.asList(
         TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.STRING_TYPE_NAME),

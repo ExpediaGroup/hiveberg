@@ -59,7 +59,7 @@ public class IcebergInputFormat implements InputFormat {
     try {
       location = new URI(tableDir);
     } catch (URISyntaxException e) {
-      throw new UncheckedIOException(new IOException("Unable to create URI for table location: '" + tableDir + "'"));
+      throw new IOException("Unable to create URI for table location: '" + tableDir + "'");
     }
     table = tables.load(location.getPath());
 
