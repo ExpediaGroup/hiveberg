@@ -51,6 +51,12 @@
     </dependency>
     <dependency>
       <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-hive</artifactId>
+      <version>${iceberg.version}</version>
+      <classifier>all</classifier>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
       <artifactId>iceberg-parquet</artifactId>
       <version>${iceberg.version}</version>
       <classifier>all</classifier>

@@ -16,14 +16,11 @@
 package com.expediagroup.hiveberg;
 
 import static org.apache.iceberg.types.Types.NestedField.optional;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
-import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
@@ -32,24 +29,12 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.data.Record;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-import com.google.common.collect.Lists;
-import com.klarna.hiverunner.HiveShell;
-import com.klarna.hiverunner.StandaloneHiveRunner;
-import com.klarna.hiverunner.annotations.HiveSQL;
-
-@RunWith(StandaloneHiveRunner.class)
-public class TestIcebergInputFormat {
-
-  @HiveSQL(files = {}, autoStart = true)
-  private HiveShell shell;
+public class TestIcebergSerDe {
 
   private File tableLocation;
   private Table table;
@@ -74,59 +59,16 @@ public class TestIcebergInputFormat {
   }
 
   @Test
-  public void testInputFormat() {
-    shell.execute("CREATE DATABASE source_db");
-    shell.execute(new StringBuilder()
-            .append("CREATE TABLE source_db.table_a ")
-            .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
-            .append("STORED AS ")
-            .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
-            .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
-            .append("LOCATION '")
-            .append(tableLocation.getAbsolutePath())
-            .append("'")
-            .toString());
-
-    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
-
-    assertEquals(3, result.size());
-    assertArrayEquals(new Object[]{"Michael", 3000L}, result.get(0));
-    assertArrayEquals(new Object[]{"Andy", 3000L}, result.get(1));
-    assertArrayEquals(new Object[]{"Berta", 4000L}, result.get(2));
-  }
-
-  @Test
-  public void testGetSplits() throws IOException {
-    IcebergInputFormat format = new IcebergInputFormat();
-    JobConf conf = new JobConf();
-    conf.set("location", "file:" + tableLocation);
-    InputSplit[] splits = format.getSplits(conf, 1);
-    assertEquals(splits.length, 1);
-  }
-
-  @Test
-  public void testGetRecordReader() throws IOException {
+  public void testDeserializer() throws IOException, SerDeException {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
     conf.set("location", "file:" + tableLocation);
     InputSplit[] splits = format.getSplits(conf, 1);
     RecordReader reader = format.getRecordReader(splits[0], conf, null);
     IcebergWritable value = (IcebergWritable) reader.createValue();
+    reader.next(null, value);
 
-    List<Record> records = Lists.newArrayList();
-    boolean unfinished = true;
-    while(unfinished) {
-      if (reader.next(null, value)) {
-        records.add(value.getRecord().copy());
-      } else  {
-        unfinished = false;
-      }
-    }
-    assertEquals(3, records.size() );
-  }
-
-  @After
-  public void after() throws IOException {
-    FileUtils.deleteDirectory(tableLocation);
+    IcebergSerDe serde = new IcebergSerDe();
+    Object row = serde.deserialize(value);
   }
 }
