@@ -20,6 +20,7 @@ import static org.apache.iceberg.types.Types.NestedField.optional;
 import java.io.File;
 import java.io.IOException;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
@@ -29,7 +30,8 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
 import org.junit.Before;
 import org.junit.Test;
@@ -45,8 +47,11 @@ public class TestIcebergSerDe {
     Schema schema = new Schema(optional(1, "name", Types.StringType.get()),
         optional(2, "salary", Types.LongType.get()));
     PartitionSpec spec = PartitionSpec.unpartitioned();
-    HadoopTables tables = new HadoopTables();
-    table = tables.create(schema, spec, tableLocation.getAbsolutePath());
+
+    Configuration conf = new Configuration();
+    HadoopCatalog catalog = new HadoopCatalog(conf, tableLocation.getAbsolutePath());
+    TableIdentifier id = TableIdentifier.parse("source_db.table_a");
+    Table table = catalog.createTable(id, schema, spec);
 
     DataFile fileA = DataFiles
         .builder(spec)
@@ -62,7 +67,8 @@ public class TestIcebergSerDe {
   public void testDeserializer() throws IOException, SerDeException {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
-    conf.set("location", "file:" + tableLocation);
+    conf.set("location", tableLocation.getAbsolutePath());
+    conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     RecordReader reader = format.getRecordReader(splits[0], conf, null);
     IcebergWritable value = (IcebergWritable) reader.createValue();

@@ -18,7 +18,6 @@ package com.expediagroup.hiveberg;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Iterator;
@@ -34,9 +33,10 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.Record;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopInputFile;
-import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
@@ -51,17 +51,17 @@ public class IcebergInputFormat implements InputFormat {
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-    //TODO: Change this to use whichever Catalog the table was made with i.e. HiveCatalog instead etc.
-    HadoopTables tables = new HadoopTables(job);
     String tableDir = job.get("location");
-
     URI location = null;
     try {
       location = new URI(tableDir);
     } catch (URISyntaxException e) {
       throw new IOException("Unable to create URI for table location: '" + tableDir + "'");
     }
-    table = tables.load(location.getPath());
+    HadoopCatalog catalog = new HadoopCatalog(job,location.getPath());
+    TableIdentifier id = TableIdentifier.parse(job.get("name"));
+    catalog.loadTable(id);
+    table = catalog.loadTable(id);
 
     List<CombinedScanTask> tasks = Lists.newArrayList(table.newScan().planTasks());
     return createSplits(tasks);
