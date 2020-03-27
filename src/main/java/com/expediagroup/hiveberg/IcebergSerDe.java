@@ -30,9 +30,10 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.io.Writable;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
-import org.apache.iceberg.TableMetadataParser;
-import org.apache.iceberg.hadoop.HadoopFileIO;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
 
 public class IcebergSerDe extends AbstractSerDe {
@@ -46,9 +47,10 @@ public class IcebergSerDe extends AbstractSerDe {
   @Override
   public void initialize(@Nullable Configuration configuration, Properties properties) throws SerDeException {
     //TODO Add methods to dynamically find most recent metadata
-    String tableDir = properties.getProperty("location") + "/metadata/v2.metadata.json";
-    this.metadata = TableMetadataParser.read(new HadoopFileIO(configuration), tableDir);
-    this.schema = metadata.schema();
+    HadoopCatalog catalog = new HadoopCatalog(configuration, properties.getProperty("location"));
+    TableIdentifier id = TableIdentifier.parse(properties.getProperty("name"));
+    Table table = catalog.loadTable(id);
+    this.schema = table.schema();
 
     try {
       this.inspector = new IcebergObjectInspectorGenerator().createObjectInspector(schema);

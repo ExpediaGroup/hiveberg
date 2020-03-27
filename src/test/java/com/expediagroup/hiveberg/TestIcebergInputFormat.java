@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
@@ -32,8 +33,9 @@ import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.Record;
-import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
 import org.junit.After;
 import org.junit.Before;
@@ -52,7 +54,6 @@ public class TestIcebergInputFormat {
   private HiveShell shell;
 
   private File tableLocation;
-  private Table table;
 
   @Before
   public void before() throws IOException {
@@ -60,8 +61,11 @@ public class TestIcebergInputFormat {
     Schema schema = new Schema(optional(1, "name", Types.StringType.get()),
         optional(2, "salary", Types.LongType.get()));
     PartitionSpec spec = PartitionSpec.unpartitioned();
-    HadoopTables tables = new HadoopTables();
-    table = tables.create(schema, spec, tableLocation.getAbsolutePath());
+
+    Configuration conf = new Configuration();
+    HadoopCatalog catalog = new HadoopCatalog(conf, tableLocation.getAbsolutePath());
+    TableIdentifier id = TableIdentifier.parse("source_db.table_a");
+    Table table = catalog.createTable(id, schema, spec);
 
     DataFile fileA = DataFiles
         .builder(spec)
@@ -77,15 +81,15 @@ public class TestIcebergInputFormat {
   public void testInputFormat() {
     shell.execute("CREATE DATABASE source_db");
     shell.execute(new StringBuilder()
-            .append("CREATE TABLE source_db.table_a ")
-            .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
-            .append("STORED AS ")
-            .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
-            .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
-            .append("LOCATION '")
-            .append(tableLocation.getAbsolutePath())
-            .append("'")
-            .toString());
+        .append("CREATE TABLE source_db.table_a ")
+        .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
+        .append("STORED AS ")
+        .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
+        .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath())
+        .append("'")
+        .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
 
@@ -99,7 +103,8 @@ public class TestIcebergInputFormat {
   public void testGetSplits() throws IOException {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
-    conf.set("location", "file:" + tableLocation);
+    conf.set("location", tableLocation.getAbsolutePath());
+    conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     assertEquals(splits.length, 1);
   }
@@ -108,7 +113,8 @@ public class TestIcebergInputFormat {
   public void testGetRecordReader() throws IOException {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
-    conf.set("location", "file:" + tableLocation);
+    conf.set("location", tableLocation.getAbsolutePath());
+    conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     RecordReader reader = format.getRecordReader(splits[0], conf, null);
     IcebergWritable value = (IcebergWritable) reader.createValue();
