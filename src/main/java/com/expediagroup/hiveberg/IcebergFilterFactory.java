@@ -16,6 +16,7 @@ import static org.apache.iceberg.expressions.Expressions.lessThan;
 import static org.apache.iceberg.expressions.Expressions.lessThanOrEqual;
 import static org.apache.iceberg.expressions.Expressions.not;
 import static org.apache.iceberg.expressions.Expressions.or;
+import static org.apache.iceberg.expressions.Expressions.truncate;
 
 public class IcebergFilterFactory {
 
@@ -39,7 +40,7 @@ public class IcebergFilterFactory {
       case LEAF:
         return getLeaf(sarg.getLeaves().get(0));
       case CONSTANT:
-        return null;
+        return getConstantExp(sarg.getExpression());
     }
     return null;
   }
@@ -54,8 +55,8 @@ public class IcebergFilterFactory {
         return not(recurseExpressionTree(tree.getChildren().get(0), leaves));
       case LEAF:
         return getLeaf(leaves.get(tree.getLeaf()));
-      case CONSTANT:
-        break;
+      case CONSTANT: //TODO: What is best to return for all these?
+        return getConstantExp(tree);
     }
     return null;
   }
@@ -77,6 +78,26 @@ public class IcebergFilterFactory {
         return and((greaterThan(column, leaf.getLiteralList().get(0))), lessThan(column, leaf.getLiteralList().get(1)));
       case IS_NULL:
         return isNull(column);
+    }
+    return null;
+  }
+
+  private static Expression getConstantExp(ExpressionTree tree) {
+    switch (tree.getConstant()) { //TODO: What to return for these? True, false?
+      case YES:
+        break;
+      case NO:
+        break;
+      case NULL:
+        break;
+      case YES_NULL:
+        break;
+      case NO_NULL:
+        break;
+      case YES_NO:
+        break;
+      case YES_NO_NULL:
+        break;
     }
     return null;
   }
