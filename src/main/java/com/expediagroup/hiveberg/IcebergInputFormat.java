@@ -23,6 +23,10 @@ import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.hadoop.hive.ql.exec.SerializationUtilities;
+import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
+import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
+import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
@@ -35,6 +39,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.Record;
+import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.io.CloseableIterable;
@@ -47,6 +52,7 @@ import com.google.common.collect.Lists;
 public class IcebergInputFormat implements InputFormat {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
+  //TODO: Create final fields for conf strings e.g. "iceberg.filter.serialized"
   private Table table;
 
   @Override
@@ -63,7 +69,15 @@ public class IcebergInputFormat implements InputFormat {
     catalog.loadTable(id);
     table = catalog.loadTable(id);
 
-    List<CombinedScanTask> tasks = Lists.newArrayList(table.newScan().planTasks());
+    ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
+        deserializeObject(job.get( "iceberg.filter.serialized"), ExprNodeGenericFuncDesc.class);
+    SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
+    Expression expression = IcebergFilterFactory.getFilterExpression(sarg);
+
+    List<CombinedScanTask> tasks = Lists.newArrayList(table.newScan()
+        .filter(expression)
+        .planTasks());
+
     return createSplits(tasks);
   }
 

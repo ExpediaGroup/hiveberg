@@ -82,10 +82,7 @@ public class TestIcebergInputFormat {
     shell.execute("CREATE DATABASE source_db");
     shell.execute(new StringBuilder()
         .append("CREATE TABLE source_db.table_a ")
-        .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
-        .append("STORED AS ")
-        .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
-        .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath())
         .append("'")
