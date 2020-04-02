@@ -15,8 +15,8 @@ import static org.apache.iceberg.expressions.Expressions.isNull;
 import static org.apache.iceberg.expressions.Expressions.lessThan;
 import static org.apache.iceberg.expressions.Expressions.lessThanOrEqual;
 import static org.apache.iceberg.expressions.Expressions.not;
+import static org.apache.iceberg.expressions.Expressions.notNull;
 import static org.apache.iceberg.expressions.Expressions.or;
-import static org.apache.iceberg.expressions.Expressions.truncate;
 
 public class IcebergFilterFactory {
 
@@ -34,7 +34,12 @@ public class IcebergFilterFactory {
       case AND:
         ExpressionTree andLeft = expressionChildren.get(0);
         ExpressionTree andRight = expressionChildren.get(1);
-        return and(recurseExpressionTree(andLeft, children), recurseExpressionTree(andRight, children));
+        if(expressionChildren.size() > 2) {
+          Expression[] evaluatedChildren = getLeftoverLeaves(expressionChildren, children);
+          return and(recurseExpressionTree(andLeft, children), recurseExpressionTree(andRight, children), evaluatedChildren);
+        } else {
+          return and(recurseExpressionTree(andLeft, children), recurseExpressionTree(andRight, children));
+        }
       case NOT:
         return not(getLeaf(sarg.getLeaves().get(0)));
       case LEAF:
@@ -44,6 +49,24 @@ public class IcebergFilterFactory {
       default:
         return null;
     }
+  }
+
+  /**
+   * Remove nodes already evaluated and return an array of the evaluated leftover nodes.
+   * @param allLeaves - all child expression trees to be evaluated for the AND.
+   * @param children - all the implementations of the child expression trees.
+   * @return array list of leftover evaluated nodes.
+   */
+  private static Expression[] getLeftoverLeaves(List<ExpressionTree> allLeaves, List<PredicateLeaf> children) {
+    allLeaves.remove(0);
+    allLeaves.remove(0);
+
+    Expression[] evaluatedLeaves = new Expression[allLeaves.size()];
+    for(int i = 0; i < allLeaves.size(); i ++) {
+      Expression filter = recurseExpressionTree(allLeaves.get(i), children);
+      evaluatedLeaves[i] = filter;
+    }
+    return evaluatedLeaves;
   }
 
   private static Expression recurseExpressionTree(ExpressionTree tree, List<PredicateLeaf> leaves) {
@@ -69,7 +92,7 @@ public class IcebergFilterFactory {
       case EQUALS:
         return equal(column, leaf.getLiteral());
       case NULL_SAFE_EQUALS:
-        return equal(column, leaf.getLiteral());
+        return equal(notNull(column).ref().name(), leaf.getLiteral()); //TODO: Unsure..
       case LESS_THAN:
         return lessThan(column, leaf.getLiteral());
       case LESS_THAN_EQUALS:
