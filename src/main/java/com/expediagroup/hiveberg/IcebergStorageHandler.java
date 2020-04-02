@@ -100,6 +100,7 @@ public class IcebergStorageHandler extends DefaultStorageHandler implements Hive
    */
   @Override
   public DecomposedPredicate decomposePredicate(JobConf jobConf, Deserializer deserializer, ExprNodeDesc exprNodeDesc) {
+    getConf().set("iceberg.filter", "true");
     getConf().set("iceberg.filter.serialized", SerializationUtilities.serializeObject(exprNodeDesc));
 
     //TODO: Decide what Iceberg can handle and what to return to Hive

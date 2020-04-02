@@ -78,11 +78,33 @@ public class TestIcebergInputFormat {
   }
 
   @Test
-  public void testInputFormat() {
+  public void testStorageHandler() {
     shell.execute("CREATE DATABASE source_db");
     shell.execute(new StringBuilder()
         .append("CREATE TABLE source_db.table_a ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath())
+        .append("'")
+        .toString());
+
+    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
+
+    assertEquals(3, result.size());
+    assertArrayEquals(new Object[]{"Michael", 3000L}, result.get(0));
+    assertArrayEquals(new Object[]{"Andy", 3000L}, result.get(1));
+    assertArrayEquals(new Object[]{"Berta", 4000L}, result.get(2));
+  }
+
+  @Test
+  public void testInputFormat () {
+    shell.execute("CREATE DATABASE source_db");
+    shell.execute(new StringBuilder()
+        .append("CREATE TABLE source_db.table_a ")
+        .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
+        .append("STORED AS ")
+        .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
+        .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath())
         .append("'")

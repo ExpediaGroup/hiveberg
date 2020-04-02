@@ -69,14 +69,19 @@ public class IcebergInputFormat implements InputFormat {
     catalog.loadTable(id);
     table = catalog.loadTable(id);
 
-    ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
-        deserializeObject(job.get( "iceberg.filter.serialized"), ExprNodeGenericFuncDesc.class);
-    SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
-    Expression expression = IcebergFilterFactory.getFilterExpression(sarg);
+    List<CombinedScanTask> tasks;
+    if(job.get("iceberg.filter") == null) {
+      tasks = Lists.newArrayList(table.newScan().planTasks());
+    } else {
+      ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
+          deserializeObject(job.get( "iceberg.filter.serialized"), ExprNodeGenericFuncDesc.class);
+      SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
+      Expression expression = IcebergFilterFactory.getFilterExpression(sarg);
 
-    List<CombinedScanTask> tasks = Lists.newArrayList(table.newScan()
-        .filter(expression)
-        .planTasks());
+      tasks = Lists.newArrayList(table.newScan()
+          .filter(expression)
+          .planTasks());
+    }
 
     return createSplits(tasks);
   }

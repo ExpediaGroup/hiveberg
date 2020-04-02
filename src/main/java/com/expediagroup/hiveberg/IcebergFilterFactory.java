@@ -41,8 +41,9 @@ public class IcebergFilterFactory {
         return getLeaf(sarg.getLeaves().get(0));
       case CONSTANT:
         return getConstantExp(sarg.getExpression());
+      default:
+        return null;
     }
-    return null;
   }
 
   private static Expression recurseExpressionTree(ExpressionTree tree, List<PredicateLeaf> leaves) {
@@ -55,10 +56,11 @@ public class IcebergFilterFactory {
         return not(recurseExpressionTree(tree.getChildren().get(0), leaves));
       case LEAF:
         return getLeaf(leaves.get(tree.getLeaf()));
-      case CONSTANT: //TODO: What is best to return for all these?
+      case CONSTANT:
         return getConstantExp(tree);
+      default:
+        return null;
     }
-    return null;
   }
 
   private static Expression getLeaf(PredicateLeaf leaf) {
@@ -78,27 +80,29 @@ public class IcebergFilterFactory {
         return and((greaterThan(column, leaf.getLiteralList().get(0))), lessThan(column, leaf.getLiteralList().get(1)));
       case IS_NULL:
         return isNull(column);
+      default:
+        return null;
     }
-    return null;
   }
 
   private static Expression getConstantExp(ExpressionTree tree) {
     switch (tree.getConstant()) { //TODO: What to return for these? True, false?
       case YES:
-        break;
+        return null;
       case NO:
-        break;
+        return null;
       case NULL:
-        break;
+        return null;
       case YES_NULL:
-        break;
+        return null;
       case NO_NULL:
-        break;
+        return null;
       case YES_NO:
-        break;
+        return null;
       case YES_NO_NULL:
-        break;
+        return null;
+      default:
+        return null;
     }
-    return null;
   }
 }
