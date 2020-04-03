@@ -52,34 +52,38 @@ import com.google.common.collect.Lists;
 public class IcebergInputFormat implements InputFormat {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
-  //TODO: Create final fields for conf strings e.g. "iceberg.filter.serialized"
+  static final String TABLE_LOCATION = "location";
+  static final String TABLE_NAME = "name";
+  static final String TABLE_FILTER_PRESENT = "iceberg.filter";
+  static final String TABLE_FILTER_SERIALIZED = "iceberg.filter.serialized";
+
   private Table table;
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-    String tableDir = job.get("location");
-    URI location = null;
+    String tableDir = job.get(TABLE_LOCATION);
+    URI location;
     try {
       location = new URI(tableDir);
     } catch (URISyntaxException e) {
       throw new IOException("Unable to create URI for table location: '" + tableDir + "'");
     }
     HadoopCatalog catalog = new HadoopCatalog(job,location.getPath());
-    TableIdentifier id = TableIdentifier.parse(job.get("name"));
+    TableIdentifier id = TableIdentifier.parse(job.get(TABLE_NAME));
     catalog.loadTable(id);
     table = catalog.loadTable(id);
 
     List<CombinedScanTask> tasks;
-    if(job.get("iceberg.filter") == null) {
+    if(!job.getBoolean(TABLE_FILTER_PRESENT, false)) {
       tasks = Lists.newArrayList(table.newScan().planTasks());
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
-          deserializeObject(job.get( "iceberg.filter.serialized"), ExprNodeGenericFuncDesc.class);
+          deserializeObject(job.get( TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
       SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
-      Expression expression = IcebergFilterFactory.getFilterExpression(sarg);
+      Expression filter = IcebergFilterFactory.getFilterExpression(sarg);
 
       tasks = Lists.newArrayList(table.newScan()
-          .filter(expression)
+          .filter(filter)
           .planTasks());
     }
 

@@ -45,16 +45,16 @@ public class IcebergFilterFactory {
       case LEAF:
         return getLeaf(sarg.getLeaves().get(0));
       case CONSTANT:
-        return getConstantExp(sarg.getExpression());
-      default:
         return null;
+      default:
+        throw new IllegalStateException("Unknown operator: " + sarg.getExpression().getOperator());
     }
   }
 
   /**
-   * Remove nodes already evaluated and return an array of the evaluated leftover nodes.
-   * @param allLeaves - all child expression trees to be evaluated for the AND.
-   * @param children - all the implementations of the child expression trees.
+   * Remove first 2 nodes already evaluated and return an array of the evaluated leftover nodes.
+   * @param allLeaves - all child ExpressionTrees to be evaluated for the AND expression.
+   * @param children - all the implementations of the child ExpressionTrees.
    * @return array list of leftover evaluated nodes.
    */
   private static Expression[] getLeftoverLeaves(List<ExpressionTree> allLeaves, List<PredicateLeaf> children) {
@@ -72,17 +72,19 @@ public class IcebergFilterFactory {
   private static Expression recurseExpressionTree(ExpressionTree tree, List<PredicateLeaf> leaves) {
     switch (tree.getOperator()) {
       case OR:
-        return or(recurseExpressionTree(tree.getChildren().get(0), leaves), recurseExpressionTree(tree.getChildren().get(1), leaves));
+        return or(recurseExpressionTree(tree.getChildren().get(0), leaves),
+            recurseExpressionTree(tree.getChildren().get(1), leaves));
       case AND:
-        return and(recurseExpressionTree(tree.getChildren().get(0), leaves), recurseExpressionTree(tree.getChildren().get(1), leaves));
+        return and(recurseExpressionTree(tree.getChildren().get(0), leaves),
+            recurseExpressionTree(tree.getChildren().get(1), leaves));
       case NOT:
         return not(recurseExpressionTree(tree.getChildren().get(0), leaves));
       case LEAF:
         return getLeaf(leaves.get(tree.getLeaf()));
       case CONSTANT:
-        return getConstantExp(tree);
-      default:
         return null;
+      default:
+        throw new IllegalStateException("Unknown operator: " + tree.getOperator());
     }
   }
 
@@ -104,28 +106,7 @@ public class IcebergFilterFactory {
       case IS_NULL:
         return isNull(column);
       default:
-        return null;
-    }
-  }
-
-  private static Expression getConstantExp(ExpressionTree tree) {
-    switch (tree.getConstant()) { //TODO: What to return for these? True, false?
-      case YES:
-        return null;
-      case NO:
-        return null;
-      case NULL:
-        return null;
-      case YES_NULL:
-        return null;
-      case NO_NULL:
-        return null;
-      case YES_NO:
-        return null;
-      case YES_NO_NULL:
-        return null;
-      default:
-        return null;
+        throw new IllegalStateException("Unknown operator: " + leaf.getOperator());
     }
   }
 }

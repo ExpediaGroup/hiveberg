@@ -32,7 +32,8 @@ class IcebergReaderFactory {
   IcebergReaderFactory() {
   }
 
-  public CloseableIterable<Record> createReader(DataFile file, FileScanTask currentTask, InputFile inputFile, Schema tableSchema, boolean reuseContainers) {
+  public CloseableIterable<Record> createReader(DataFile file, FileScanTask currentTask, InputFile inputFile,
+                                                Schema tableSchema, boolean reuseContainers) {
     switch (file.format()) {
       case AVRO:
         return buildAvroReader(currentTask, inputFile, tableSchema, reuseContainers);
@@ -71,10 +72,12 @@ class IcebergReaderFactory {
   }
 
   // FIXME: use generic reader function
-  private CloseableIterable buildParquetReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+  private CloseableIterable buildParquetReader(FileScanTask task, InputFile file, Schema schema,
+                                               boolean reuseContainers) {
     Parquet.ReadBuilder builder = Parquet.read(file)
         .createReaderFunc(messageType -> GenericParquetReaders.buildReader(schema, messageType))
         .project(schema)
+        .filter(task.residual())
         .split(task.start(), task.length());
 
     if (reuseContainers) {
