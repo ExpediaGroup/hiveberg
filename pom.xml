@@ -61,7 +61,6 @@
       <version>${iceberg.version}</version>
       <classifier>all</classifier>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/com.esotericsoftware/kryo -->
     <dependency>
       <groupId>com.esotericsoftware</groupId>
       <artifactId>kryo-shaded</artifactId>
@@ -73,7 +72,6 @@
       <artifactId>avro</artifactId>
       <version>1.9.2</version>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/org.apache.hive/hive-exec -->
     <dependency>
       <groupId>org.apache.hive</groupId>
       <artifactId>hive-exec</artifactId>

@@ -1,11 +1,19 @@
+/**
+ * Copyright (C) 2020 Expedia, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.expediagroup.hiveberg;
-
-import org.apache.hadoop.hive.ql.io.sarg.ExpressionTree;
-import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
-import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
-import org.apache.iceberg.expressions.Expression;
-
-import java.util.List;
 
 import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.expressions.Expressions.equal;
@@ -18,32 +26,40 @@ import static org.apache.iceberg.expressions.Expressions.not;
 import static org.apache.iceberg.expressions.Expressions.notNull;
 import static org.apache.iceberg.expressions.Expressions.or;
 
+import java.util.List;
+
+import org.apache.hadoop.hive.ql.io.sarg.ExpressionTree;
+import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
+import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
+import org.apache.iceberg.expressions.Expression;
+
 public class IcebergFilterFactory {
 
   IcebergFilterFactory () {}
 
-  public static Expression getFilterExpression(SearchArgument sarg) {
-    List<PredicateLeaf> children = sarg.getLeaves();
-    List<ExpressionTree> expressionChildren = sarg.getExpression().getChildren();
+  public static Expression generateFilterExpression(SearchArgument sarg) {
+    List<PredicateLeaf> leaves = sarg.getLeaves();
+    List<ExpressionTree> childNodes = sarg.getExpression().getChildren();
 
     switch (sarg.getExpression().getOperator()) {
       case OR:
-        ExpressionTree orLeft = expressionChildren.get(0);
-        ExpressionTree orRight = expressionChildren.get(1);
-        return or(recurseExpressionTree(orLeft, children), recurseExpressionTree(orRight, children));
+        ExpressionTree orLeft = childNodes.get(0);
+        ExpressionTree orRight = childNodes.get(1);
+        return or(translate(orLeft, leaves), translate(orRight, leaves));
       case AND:
-        ExpressionTree andLeft = expressionChildren.get(0);
-        ExpressionTree andRight = expressionChildren.get(1);
-        if(expressionChildren.size() > 2) {
-          Expression[] evaluatedChildren = getLeftoverLeaves(expressionChildren, children);
-          return and(recurseExpressionTree(andLeft, children), recurseExpressionTree(andRight, children), evaluatedChildren);
+        ExpressionTree andLeft = childNodes.get(0);
+        ExpressionTree andRight = childNodes.get(1);
+        if(childNodes.size() > 2) {
+          Expression[] evaluatedChildren = getLeftoverLeaves(childNodes, leaves);
+          return and(
+              translate(andLeft, leaves), translate(andRight, leaves), evaluatedChildren);
         } else {
-          return and(recurseExpressionTree(andLeft, children), recurseExpressionTree(andRight, children));
+          return and(translate(andLeft, leaves), translate(andRight, leaves));
         }
       case NOT:
-        return not(getLeaf(sarg.getLeaves().get(0)));
+        return not(translateLeaf(sarg.getLeaves().get(0)));
       case LEAF:
-        return getLeaf(sarg.getLeaves().get(0));
+        return translateLeaf(sarg.getLeaves().get(0));
       case CONSTANT:
         return null;
       default:
@@ -53,34 +69,46 @@ public class IcebergFilterFactory {
 
   /**
    * Remove first 2 nodes already evaluated and return an array of the evaluated leftover nodes.
-   * @param allLeaves - all child ExpressionTrees to be evaluated for the AND expression.
-   * @param children - all the implementations of the child ExpressionTrees.
+   * @param allChildNodes - all child nodes to be evaluated for the AND expression.
+   * @param leaves - all instances of the leaf nodes.
    * @return array list of leftover evaluated nodes.
    */
-  private static Expression[] getLeftoverLeaves(List<ExpressionTree> allLeaves, List<PredicateLeaf> children) {
-    allLeaves.remove(0);
-    allLeaves.remove(0);
+  private static Expression[] getLeftoverLeaves(List<ExpressionTree> allChildNodes, List<PredicateLeaf> leaves) {
+    allChildNodes.remove(0);
+    allChildNodes.remove(0);
 
-    Expression[] evaluatedLeaves = new Expression[allLeaves.size()];
-    for(int i = 0; i < allLeaves.size(); i ++) {
-      Expression filter = recurseExpressionTree(allLeaves.get(i), children);
+    Expression[] evaluatedLeaves = new Expression[allChildNodes.size()];
+    for(int i = 0; i < allChildNodes.size(); i ++) {
+      Expression filter = translate(allChildNodes.get(i), leaves);
       evaluatedLeaves[i] = filter;
     }
     return evaluatedLeaves;
   }
 
-  private static Expression recurseExpressionTree(ExpressionTree tree, List<PredicateLeaf> leaves) {
+  /**
+   * Recursive method to traverse down the ExpressionTree to evaluate each expression and its leaf nodes.
+   * @param tree - current 'top' node that is being evaluated.
+   * @param leaves - list of all leaf nodes within the tree.
+   * @return Expression that is translated from the Hive SearchArgument.
+   */
+  private static Expression translate(ExpressionTree tree, List<PredicateLeaf> leaves) {
     switch (tree.getOperator()) {
       case OR:
-        return or(recurseExpressionTree(tree.getChildren().get(0), leaves),
-            recurseExpressionTree(tree.getChildren().get(1), leaves));
+        return or(translate(tree.getChildren().get(0), leaves),
+            translate(tree.getChildren().get(1), leaves));
       case AND:
-        return and(recurseExpressionTree(tree.getChildren().get(0), leaves),
-            recurseExpressionTree(tree.getChildren().get(1), leaves));
+        if(tree.getChildren().size() > 2) {
+          Expression[] evaluatedChildren = getLeftoverLeaves(tree.getChildren(), leaves);
+          return and(translate(tree.getChildren().get(0), leaves),
+              translate(tree.getChildren().get(1), leaves), evaluatedChildren);
+        } else {
+          return and(translate(tree.getChildren().get(0), leaves),
+              translate(tree.getChildren().get(1), leaves));
+        }
       case NOT:
-        return not(recurseExpressionTree(tree.getChildren().get(0), leaves));
+        return not(translate(tree.getChildren().get(0), leaves));
       case LEAF:
-        return getLeaf(leaves.get(tree.getLeaf()));
+        return translateLeaf(leaves.get(tree.getLeaf()));
       case CONSTANT:
         return null;
       default:
@@ -88,7 +116,12 @@ public class IcebergFilterFactory {
     }
   }
 
-  private static Expression getLeaf(PredicateLeaf leaf) {
+  /**
+   * Translate leaf nodes from Hive operator to Iceberg operator.
+   * @param leaf - leaf node
+   * @return Expression fully translated from Hive PredicateLeaf
+   */
+  private static Expression translateLeaf(PredicateLeaf leaf) {
     String column = leaf.getColumnName();
     switch (leaf.getOperator()){
       case EQUALS:

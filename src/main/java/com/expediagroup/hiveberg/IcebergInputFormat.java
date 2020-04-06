@@ -54,7 +54,6 @@ public class IcebergInputFormat implements InputFormat {
 
   static final String TABLE_LOCATION = "location";
   static final String TABLE_NAME = "name";
-  static final String TABLE_FILTER_PRESENT = "iceberg.filter";
   static final String TABLE_FILTER_SERIALIZED = "iceberg.filter.serialized";
 
   private Table table;
@@ -74,13 +73,13 @@ public class IcebergInputFormat implements InputFormat {
     table = catalog.loadTable(id);
 
     List<CombinedScanTask> tasks;
-    if(!job.getBoolean(TABLE_FILTER_PRESENT, false)) {
+    if(job.get(TABLE_FILTER_SERIALIZED) == null) {
       tasks = Lists.newArrayList(table.newScan().planTasks());
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
           deserializeObject(job.get( TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
       SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
-      Expression filter = IcebergFilterFactory.getFilterExpression(sarg);
+      Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
 
       tasks = Lists.newArrayList(table.newScan()
           .filter(filter)
