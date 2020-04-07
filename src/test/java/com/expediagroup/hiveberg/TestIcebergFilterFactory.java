@@ -105,8 +105,8 @@ public class TestIcebergFilterFactory {
         .startAnd()
         .between("salary", PredicateLeaf.Type.LONG, 3000L, 4000L).end().build();
 
-    And expected = (And) Expressions
-        .and(Expressions.greaterThan("salary", 3000L),Expressions.lessThan("salary", 3000L));
+    And expected = (And) Expressions.and(Expressions.greaterThanOrEqual("salary", 3000L),
+        Expressions.lessThanOrEqual("salary", 3000L));
     And actual = (And) IcebergFilterFactory.generateFilterExpression(arg);
 
     assertEquals(actual.op(), expected.op());

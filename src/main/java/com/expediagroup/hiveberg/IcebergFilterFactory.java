@@ -17,7 +17,7 @@ package com.expediagroup.hiveberg;
 
 import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.expressions.Expressions.equal;
-import static org.apache.iceberg.expressions.Expressions.greaterThan;
+import static org.apache.iceberg.expressions.Expressions.greaterThanOrEqual;
 import static org.apache.iceberg.expressions.Expressions.in;
 import static org.apache.iceberg.expressions.Expressions.isNull;
 import static org.apache.iceberg.expressions.Expressions.lessThan;
@@ -135,7 +135,8 @@ public class IcebergFilterFactory {
       case IN:
         return in(column, leaf.getLiteralList());
       case BETWEEN:
-        return and((greaterThan(column, leaf.getLiteralList().get(0))), lessThan(column, leaf.getLiteralList().get(1)));
+        return and((greaterThanOrEqual(column, leaf.getLiteralList().get(0))),
+            lessThanOrEqual(column, leaf.getLiteralList().get(1)));
       case IS_NULL:
         return isNull(column);
       default:
