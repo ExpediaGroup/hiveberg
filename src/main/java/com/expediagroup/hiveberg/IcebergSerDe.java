@@ -19,9 +19,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
-
 import javax.annotation.Nullable;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.SerDeException;
@@ -41,7 +39,6 @@ public class IcebergSerDe extends AbstractSerDe {
 
   @Override
   public void initialize(@Nullable Configuration configuration, Properties properties) throws SerDeException {
-    //TODO Add methods to dynamically find most recent metadata
     HadoopCatalog catalog = new HadoopCatalog(configuration, properties.getProperty("location"));
     TableIdentifier id = TableIdentifier.parse(properties.getProperty("name"));
     Table table = catalog.loadTable(id);

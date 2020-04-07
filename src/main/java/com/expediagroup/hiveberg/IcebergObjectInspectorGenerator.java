@@ -17,7 +17,6 @@ package com.expediagroup.hiveberg;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;

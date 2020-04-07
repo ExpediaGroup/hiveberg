@@ -16,7 +16,6 @@
 package com.expediagroup.hiveberg;
 
 import java.util.Map;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.ql.exec.SerializationUtilities;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
@@ -34,7 +33,6 @@ import org.apache.hadoop.mapred.OutputFormat;
 public class IcebergStorageHandler extends DefaultStorageHandler implements HiveStoragePredicateHandler {
 
   private Configuration conf;
-  private String filter;
 
   @Override
   public Class<? extends InputFormat> getInputFormatClass() {
@@ -90,7 +88,7 @@ public class IcebergStorageHandler extends DefaultStorageHandler implements Hive
    * @param jobConf Job configuration for InputFormat to access
    * @param deserializer Deserializer
    * @param exprNodeDesc Filter expression extracted by Hive
-   * @return - DecomposedPredicate that tells Hive what parts of the predicate are handled by the StorageHandler
+   * @return DecomposedPredicate that tells Hive what parts of the predicate are handled by the StorageHandler
    * and what parts Hive needs to handle.
    */
   @Override

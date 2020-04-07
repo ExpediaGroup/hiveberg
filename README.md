@@ -15,7 +15,7 @@ Ultimately we would like to contribute this Hive Input Format to Iceberg so this
 ## Features
 ### IcebergInputFormat
 
-To use the `IcebergInputFormat` you need to write a Hive query similar to:
+To use the `IcebergInputFormat` you need to create a Hive table using DDL:
 ```sql
 CREATE TABLE source_db.table_a
    ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe'
@@ -36,7 +36,7 @@ TableIdentifier id = TableIdentifier.parse("source_db.table_a");
 ```
 
 ### IcebergStorageHandler
-This is implemented as a simplified option for creating Hiveberg tables. The Hive query should instead look like:
+This is implemented as a simplified option for creating Hiveberg tables. The Hive DDL should instead look like:
 ```sql
 CREATE TABLE source_db.table_a
    STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler'
@@ -44,7 +44,7 @@ CREATE TABLE source_db.table_a
 ```
 
 ### Predicate Pushdown
-Pushdown of the HiveSQL `WHERE` clause has been implemented so that filter's are pushed to the Iceberg `TableScan` level as well as the Parquet `Reader`. ORC implementations are still in the works. 
+Pushdown of the HiveSQL `WHERE` clause has been implemented so that filters are pushed to the Iceberg `TableScan` level as well as the Parquet `Reader`. ORC implementations are still in the works. 
 
 # Legal
 This project is available under the [Apache 2.0 License](http://www.apache.org/licenses/LICENSE-2.0.html).

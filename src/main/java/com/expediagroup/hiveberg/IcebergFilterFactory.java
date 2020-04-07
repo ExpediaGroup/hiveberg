@@ -1,5 +1,10 @@
 /**
- * Copyright (C) 2020 Expedia, Inc.
+ * Copyright (C) 2020 Expedia, Inc and the Apache Software Foundation.
+ *
+ * This class was inspired by code written for converting to Parquet filters:
+ *
+ * https://github.com/apache/hive/blob/master/ql/src/java/org/apache/hadoop/
+ * hive/ql/io/parquet/read/ParquetFilterPredicateConverter.java#L46
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +20,12 @@
  */
 package com.expediagroup.hiveberg;
 
+import java.util.List;
+import org.apache.hadoop.hive.ql.io.sarg.ExpressionTree;
+import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
+import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
+import org.apache.iceberg.expressions.Expression;
+
 import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.expressions.Expressions.equal;
 import static org.apache.iceberg.expressions.Expressions.greaterThanOrEqual;
@@ -26,16 +37,9 @@ import static org.apache.iceberg.expressions.Expressions.not;
 import static org.apache.iceberg.expressions.Expressions.notNull;
 import static org.apache.iceberg.expressions.Expressions.or;
 
-import java.util.List;
-
-import org.apache.hadoop.hive.ql.io.sarg.ExpressionTree;
-import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
-import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
-import org.apache.iceberg.expressions.Expression;
-
 public class IcebergFilterFactory {
 
-  IcebergFilterFactory () {}
+  private IcebergFilterFactory () {}
 
   public static Expression generateFilterExpression(SearchArgument sarg) {
     List<PredicateLeaf> leaves = sarg.getLeaves();
@@ -69,9 +73,9 @@ public class IcebergFilterFactory {
 
   /**
    * Remove first 2 nodes already evaluated and return an array of the evaluated leftover nodes.
-   * @param allChildNodes - all child nodes to be evaluated for the AND expression.
-   * @param leaves - all instances of the leaf nodes.
-   * @return array list of leftover evaluated nodes.
+   * @param allChildNodes All child nodes to be evaluated for the AND expression.
+   * @param leaves All instances of the leaf nodes.
+   * @return Array of leftover evaluated nodes.
    */
   private static Expression[] getLeftoverLeaves(List<ExpressionTree> allChildNodes, List<PredicateLeaf> leaves) {
     allChildNodes.remove(0);
@@ -87,8 +91,8 @@ public class IcebergFilterFactory {
 
   /**
    * Recursive method to traverse down the ExpressionTree to evaluate each expression and its leaf nodes.
-   * @param tree - current 'top' node that is being evaluated.
-   * @param leaves - list of all leaf nodes within the tree.
+   * @param tree Current ExpressionTree where the 'top' node is being evaluated.
+   * @param leaves List of all leaf nodes within the tree.
    * @return Expression that is translated from the Hive SearchArgument.
    */
   private static Expression translate(ExpressionTree tree, List<PredicateLeaf> leaves) {
@@ -121,7 +125,7 @@ public class IcebergFilterFactory {
 
   /**
    * Translate leaf nodes from Hive operator to Iceberg operator.
-   * @param leaf - leaf node
+   * @param leaf Leaf node
    * @return Expression fully translated from Hive PredicateLeaf
    */
   private static Expression translateLeaf(PredicateLeaf leaf) {
