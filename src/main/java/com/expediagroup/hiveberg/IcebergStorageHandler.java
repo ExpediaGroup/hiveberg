@@ -52,28 +52,23 @@ public class IcebergStorageHandler extends DefaultStorageHandler implements Hive
   }
 
   @Override
-  public void configureInputJobProperties(TableDesc tableDesc,
-                                          Map<String, String> jobProperties) {
-    // do nothing by default
-    //jobProperties.put("hive.io.filter.text", "testing");
-    //tableDesc.setJobProperties(jobProperties);
+  public void configureInputJobProperties(TableDesc tableDesc, Map<String, String> jobProperties) {
+    super.configureInputJobProperties(tableDesc, jobProperties);
   }
 
   @Override
-  public void configureOutputJobProperties(TableDesc tableDesc,
-                                           Map<String, String> jobProperties) {
-    // do nothing by default
+  public void configureOutputJobProperties(TableDesc tableDesc, Map<String, String> jobProperties) {
+    super.configureOutputJobProperties(tableDesc, jobProperties);
   }
 
   @Override
-  public void configureTableJobProperties(TableDesc tableDesc,
-                                          Map<String, String> jobProperties) {
-    //do nothing by default
+  public void configureTableJobProperties(TableDesc tableDesc, Map<String, String> jobProperties) {
+    super.configureTableJobProperties(tableDesc, jobProperties);
   }
 
   @Override
   public void configureJobConf(TableDesc tableDesc, JobConf jobConf) {
-    //do nothing by default
+    super.configureJobConf(tableDesc, jobConf);
   }
 
   @Override
@@ -92,10 +87,10 @@ public class IcebergStorageHandler extends DefaultStorageHandler implements Hive
 
   /**
    * Extract and serialize the filter expression and add it to the Configuration for the InputFormat to access.
-   * @param jobConf - job configuration for InputFormat to access
-   * @param deserializer - deserializer
-   * @param exprNodeDesc - filter expression extracted by Hive
-   * @return - decomposed predicate that tells Hive what parts of the predicate are handled by the StorageHandler
+   * @param jobConf Job configuration for InputFormat to access
+   * @param deserializer Deserializer
+   * @param exprNodeDesc Filter expression extracted by Hive
+   * @return - DecomposedPredicate that tells Hive what parts of the predicate are handled by the StorageHandler
    * and what parts Hive needs to handle.
    */
   @Override

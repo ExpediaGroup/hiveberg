@@ -43,11 +43,11 @@ class IcebergReaderFactory {
         return buildParquetReader(currentTask, inputFile, tableSchema, reuseContainers);
 
       default:
-        throw new UnsupportedOperationException(String.format("Cannot read %s file: %s", file.format().name(), file.path()));
+        throw new UnsupportedOperationException(
+            String.format("Cannot read %s file: %s", file.format().name(), file.path()));
     }
   }
 
-  // FIXME: use generic reader function
   private CloseableIterable buildAvroReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     Avro.ReadBuilder builder = Avro.read(file)
         .createReaderFunc(DataReader::create)
@@ -61,7 +61,7 @@ class IcebergReaderFactory {
     return builder.build();
   }
 
-  // FIXME: use generic reader function
+  //Predicate pushdown support for ORC can be tracked here: https://github.com/apache/incubator-iceberg/issues/787
   private CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     ORC.ReadBuilder builder = ORC.read(file)
 //            .createReaderFunc() // FIXME: implement
@@ -71,7 +71,6 @@ class IcebergReaderFactory {
     return builder.build();
   }
 
-  // FIXME: use generic reader function
   private CloseableIterable buildParquetReader(FileScanTask task, InputFile file, Schema schema,
                                                boolean reuseContainers) {
     Parquet.ReadBuilder builder = Parquet.read(file)

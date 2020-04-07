@@ -110,6 +110,9 @@ public class IcebergFilterFactory {
       case LEAF:
         return translateLeaf(leaves.get(tree.getLeaf()));
       case CONSTANT:
+        //We are unsure of how the CONSTANT case works, so using the approach of:
+        //https://github.com/apache/hive/blob/master/ql/src/java/org/apache/hadoop/hive/ql/io/parquet/read/
+        // ParquetFilterPredicateConverter.java#L116
         return null;
       default:
         throw new IllegalStateException("Unknown operator: " + tree.getOperator());
