@@ -32,7 +32,8 @@ class IcebergReaderFactory {
   IcebergReaderFactory() {
   }
 
-  public CloseableIterable<Record> createReader(DataFile file, FileScanTask currentTask, InputFile inputFile, Schema tableSchema, boolean reuseContainers) {
+  public CloseableIterable<Record> createReader(DataFile file, FileScanTask currentTask, InputFile inputFile,
+                                                Schema tableSchema, boolean reuseContainers) {
     switch (file.format()) {
       case AVRO:
         return buildAvroReader(currentTask, inputFile, tableSchema, reuseContainers);
@@ -42,11 +43,11 @@ class IcebergReaderFactory {
         return buildParquetReader(currentTask, inputFile, tableSchema, reuseContainers);
 
       default:
-        throw new UnsupportedOperationException(String.format("Cannot read %s file: %s", file.format().name(), file.path()));
+        throw new UnsupportedOperationException(
+            String.format("Cannot read %s file: %s", file.format().name(), file.path()));
     }
   }
 
-  // FIXME: use generic reader function
   private CloseableIterable buildAvroReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     Avro.ReadBuilder builder = Avro.read(file)
         .createReaderFunc(DataReader::create)
@@ -60,7 +61,7 @@ class IcebergReaderFactory {
     return builder.build();
   }
 
-  // FIXME: use generic reader function
+  //Predicate pushdown support for ORC can be tracked here: https://github.com/apache/incubator-iceberg/issues/787
   private CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     ORC.ReadBuilder builder = ORC.read(file)
 //            .createReaderFunc() // FIXME: implement
@@ -70,11 +71,12 @@ class IcebergReaderFactory {
     return builder.build();
   }
 
-  // FIXME: use generic reader function
-  private CloseableIterable buildParquetReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
+  private CloseableIterable buildParquetReader(FileScanTask task, InputFile file, Schema schema,
+                                               boolean reuseContainers) {
     Parquet.ReadBuilder builder = Parquet.read(file)
         .createReaderFunc(messageType -> GenericParquetReaders.buildReader(schema, messageType))
         .project(schema)
+        .filter(task.residual())
         .split(task.start(), task.length());
 
     if (reuseContainers) {

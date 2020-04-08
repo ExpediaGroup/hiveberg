@@ -15,14 +15,13 @@
  */
 package com.expediagroup.hiveberg;
 
-import static org.apache.iceberg.types.Types.NestedField.optional;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-
+import com.google.common.collect.Lists;
+import com.klarna.hiverunner.HiveShell;
+import com.klarna.hiverunner.StandaloneHiveRunner;
+import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.InputSplit;
@@ -42,10 +41,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import com.google.common.collect.Lists;
-import com.klarna.hiverunner.HiveShell;
-import com.klarna.hiverunner.StandaloneHiveRunner;
-import com.klarna.hiverunner.annotations.HiveSQL;
+import static org.apache.iceberg.types.Types.NestedField.optional;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 @RunWith(StandaloneHiveRunner.class)
 public class TestIcebergInputFormat {
@@ -78,7 +76,26 @@ public class TestIcebergInputFormat {
   }
 
   @Test
-  public void testInputFormat() {
+  public void testStorageHandler() {
+    shell.execute("CREATE DATABASE source_db");
+    shell.execute(new StringBuilder()
+        .append("CREATE TABLE source_db.table_a ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath())
+        .append("'")
+        .toString());
+
+    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
+
+    assertEquals(3, result.size());
+    assertArrayEquals(new Object[]{"Michael", 3000L}, result.get(0));
+    assertArrayEquals(new Object[]{"Andy", 3000L}, result.get(1));
+    assertArrayEquals(new Object[]{"Berta", 4000L}, result.get(2));
+  }
+
+  @Test
+  public void testInputFormat () {
     shell.execute("CREATE DATABASE source_db");
     shell.execute(new StringBuilder()
         .append("CREATE TABLE source_db.table_a ")

@@ -19,19 +19,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
-
 import javax.annotation.Nullable;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.SerDeStats;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.io.Writable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
@@ -39,14 +35,10 @@ import org.apache.iceberg.types.Types;
 public class IcebergSerDe extends AbstractSerDe {
 
   private Schema schema;
-  private TableMetadata metadata;
   private ObjectInspector inspector;
-  private List<String> columnNames;
-  private List<TypeInfo> columnTypes;
 
   @Override
   public void initialize(@Nullable Configuration configuration, Properties properties) throws SerDeException {
-    //TODO Add methods to dynamically find most recent metadata
     HadoopCatalog catalog = new HadoopCatalog(configuration, properties.getProperty("location"));
     TableIdentifier id = TableIdentifier.parse(properties.getProperty("name"));
     Table table = catalog.loadTable(id);

@@ -15,11 +15,8 @@
  */
 package com.expediagroup.hiveberg;
 
-import static org.apache.iceberg.types.Types.NestedField.optional;
-
 import java.io.File;
 import java.io.IOException;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.mapred.InputSplit;
@@ -35,6 +32,8 @@ import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
 import org.junit.Before;
 import org.junit.Test;
+
+import static org.apache.iceberg.types.Types.NestedField.optional;
 
 public class TestIcebergSerDe {
 

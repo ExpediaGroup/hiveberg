@@ -15,9 +15,9 @@
  */
 package com.expediagroup.hiveberg;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.typeinfo.HiveDecimalUtils;
@@ -26,8 +26,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Class to convert Iceberg types to Hive TypeInfo

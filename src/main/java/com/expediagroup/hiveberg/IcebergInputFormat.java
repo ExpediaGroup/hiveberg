@@ -15,6 +15,7 @@
  */
 package com.expediagroup.hiveberg;
 
+import com.google.common.collect.Lists;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -22,7 +23,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.List;
-
+import org.apache.hadoop.hive.ql.exec.SerializationUtilities;
+import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
+import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
+import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
@@ -35,6 +39,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.Record;
+import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.io.CloseableIterable;
@@ -42,28 +47,43 @@ import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
-
 public class IcebergInputFormat implements InputFormat {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
+
+  static final String TABLE_LOCATION = "location";
+  static final String TABLE_NAME = "name";
+  static final String TABLE_FILTER_SERIALIZED = "iceberg.filter.serialized";
 
   private Table table;
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-    String tableDir = job.get("location");
-    URI location = null;
+    String tableDir = job.get(TABLE_LOCATION);
+    URI location;
     try {
       location = new URI(tableDir);
     } catch (URISyntaxException e) {
       throw new IOException("Unable to create URI for table location: '" + tableDir + "'");
     }
     HadoopCatalog catalog = new HadoopCatalog(job,location.getPath());
-    TableIdentifier id = TableIdentifier.parse(job.get("name"));
+    TableIdentifier id = TableIdentifier.parse(job.get(TABLE_NAME));
     catalog.loadTable(id);
     table = catalog.loadTable(id);
 
-    List<CombinedScanTask> tasks = Lists.newArrayList(table.newScan().planTasks());
+    List<CombinedScanTask> tasks;
+    if(job.get(TABLE_FILTER_SERIALIZED) == null) {
+      tasks = Lists.newArrayList(table.newScan().planTasks());
+    } else {
+      ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
+          deserializeObject(job.get( TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
+      SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
+      Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
+
+      tasks = Lists.newArrayList(table.newScan()
+          .filter(filter)
+          .planTasks());
+    }
+
     return createSplits(tasks);
   }
 
