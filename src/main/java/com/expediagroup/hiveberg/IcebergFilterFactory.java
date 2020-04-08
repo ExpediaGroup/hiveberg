@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2020 Expedia, Inc and the Apache Software Foundation.
+ * Copyright (C) 2020 Expedia, Inc. and the Apache Software Foundation.
  *
  * This class was inspired by code written for converting to Parquet filters:
  *

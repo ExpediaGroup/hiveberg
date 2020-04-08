@@ -15,14 +15,13 @@
  */
 package com.expediagroup.hiveberg;
 
-import static org.apache.iceberg.types.Types.NestedField.optional;
-import static org.junit.Assert.assertEquals;
-
 import java.util.List;
-
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
 import org.junit.Test;
+
+import static org.apache.iceberg.types.Types.NestedField.optional;
+import static org.junit.Assert.assertEquals;
 
 public class TestIcebergObjectInspectorGenerator {
 

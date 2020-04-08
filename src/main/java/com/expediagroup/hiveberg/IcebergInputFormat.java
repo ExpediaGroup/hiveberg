@@ -15,6 +15,7 @@
  */
 package com.expediagroup.hiveberg;
 
+import com.google.common.collect.Lists;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -45,8 +46,6 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
 
 public class IcebergInputFormat implements InputFormat {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);

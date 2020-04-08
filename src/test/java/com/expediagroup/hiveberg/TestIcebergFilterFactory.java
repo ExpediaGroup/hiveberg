@@ -15,8 +15,6 @@
  */
 package com.expediagroup.hiveberg;
 
-import static org.junit.Assert.assertEquals;
-
 import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgumentFactory;
@@ -26,6 +24,8 @@ import org.apache.iceberg.expressions.Not;
 import org.apache.iceberg.expressions.Or;
 import org.apache.iceberg.expressions.UnboundPredicate;
 import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
 
 public class TestIcebergFilterFactory {
 
