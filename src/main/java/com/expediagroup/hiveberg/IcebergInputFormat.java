@@ -67,20 +67,25 @@ public class IcebergInputFormat implements InputFormat {
     }
     HadoopCatalog catalog = new HadoopCatalog(job,location.getPath());
     TableIdentifier id = TableIdentifier.parse(job.get(TABLE_NAME));
-    catalog.loadTable(id);
     table = catalog.loadTable(id);
 
+    //String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
     List<CombinedScanTask> tasks;
     if(job.get(TABLE_FILTER_SERIALIZED) == null) {
-      tasks = Lists.newArrayList(table.newScan().planTasks());
+      tasks = Lists.newArrayList(table
+          .newScan()
+          //.select(readColumns)
+          .planTasks());
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
           deserializeObject(job.get( TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
       SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
       Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
 
-      tasks = Lists.newArrayList(table.newScan()
+      tasks = Lists.newArrayList(table
+          .newScan()
           .filter(filter)
+          //.select(readColumns)
           .planTasks());
     }
 
@@ -187,8 +192,8 @@ public class IcebergInputFormat implements InputFormat {
     }
 
     @Override
-    public long getLength() throws IOException {
-      return 0;
+    public long getLength() {
+      return task.files().stream().mapToLong(FileScanTask::length).sum();
     }
 
     @Override
