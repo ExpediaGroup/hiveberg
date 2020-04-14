@@ -183,11 +183,17 @@ public class IcebergInputFormat implements InputFormat {
     }
   }
 
-  private static class IcebergSplit implements InputSplit {
+  //TODO: can we put this back to private?
+  public static class IcebergSplit implements InputSplit {
 
     private CombinedScanTask task;
 
-    IcebergSplit(CombinedScanTask task) {
+    //TODO: can we remove this?
+    public IcebergSplit() {
+    }
+    
+    //TODO: can we put this back to default?
+    public IcebergSplit(CombinedScanTask task) {
       this.task = task;
     }
 
