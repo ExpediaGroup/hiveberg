@@ -23,10 +23,14 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.List;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.SerializationUtilities;
+import org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
 import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
+import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
@@ -47,7 +51,7 @@ import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IcebergInputFormat implements InputFormat {
+public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.AvoidSplitCombination {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
   static final String TABLE_LOCATION = "location";
@@ -88,14 +92,13 @@ public class IcebergInputFormat implements InputFormat {
           //.select(readColumns)
           .planTasks());
     }
-
-    return createSplits(tasks);
+    return createSplits(tasks, location.toString());
   }
 
-  private InputSplit[] createSplits(List<CombinedScanTask> tasks) {
+  private InputSplit[] createSplits(List<CombinedScanTask> tasks, String name) {
     InputSplit[] splits = new InputSplit[tasks.size()];
     for (int i = 0; i < tasks.size(); i++) {
-      splits[i] = new IcebergSplit(tasks.get(i));
+      splits[i] = new IcebergSplit(tasks.get(i), name);
     }
     return splits;
   }
@@ -103,6 +106,11 @@ public class IcebergInputFormat implements InputFormat {
   @Override
   public RecordReader getRecordReader(InputSplit split, JobConf job, Reporter reporter) throws IOException {
     return new IcebergRecordReader(split, job);
+  }
+
+  @Override
+  public boolean shouldSkipCombine(Path path, Configuration configuration) throws IOException {
+    return true;
   }
 
   public class IcebergRecordReader implements RecordReader<Void, IcebergWritable> {
@@ -183,18 +191,17 @@ public class IcebergInputFormat implements InputFormat {
     }
   }
 
-  //TODO: can we put this back to private?
-  public static class IcebergSplit implements InputSplit {
+  private static class IcebergSplit extends FileSplit {
 
     private CombinedScanTask task;
+    private String partitionLocation;
 
-    //TODO: can we remove this?
     public IcebergSplit() {
     }
-    
-    //TODO: can we put this back to default?
-    public IcebergSplit(CombinedScanTask task) {
+
+    public IcebergSplit(CombinedScanTask task, String partitionLocation) {
       this.task = task;
+      this.partitionLocation = partitionLocation;
     }
 
     @Override
@@ -209,12 +216,34 @@ public class IcebergInputFormat implements InputFormat {
 
     @Override
     public void write(DataOutput out) throws IOException {
+      byte[] dataTask = SerializationUtil.serializeToBytes(this.task);
+      out.writeInt(dataTask.length);
+      out.write(dataTask);
 
+      byte[] tableName = SerializationUtil.serializeToBytes(this.partitionLocation);
+      out.writeInt(tableName.length);
+      out.write(tableName);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
+      byte[] data = new byte[in.readInt()];
+      in.readFully(data);
+      this.task = SerializationUtil.deserializeFromBytes(data);
 
+      byte[] name = new byte[in.readInt()];
+      in.readFully(name);
+      this.partitionLocation = SerializationUtil.deserializeFromBytes(name);
+    }
+
+    @Override
+    public Path getPath() {
+      return new Path(partitionLocation);
+    }
+
+    @Override
+    public long getStart() {
+      return 0L;
     }
 
     public CombinedScanTask getTask() {

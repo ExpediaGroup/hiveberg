@@ -127,6 +127,7 @@
           <!-- excluding files that don't need a header update -->
           <excludes>
             <exclude>src/main/java/com/expediagroup/hiveberg/IcebergFilterFactory.java</exclude>
+            <exclude>src/main/java/com/expediagroup/hiveberg/SerializationUtil.java</exclude>
           </excludes>
         </configuration>
       </plugin>

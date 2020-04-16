@@ -68,10 +68,15 @@ public class TestJoinTables {
         .withRecordCount(3) // needs at least one record or else metrics will filter it out
         .build();
 
-    tableA.newAppend().appendFile(fileA).commit();
-    tableB.newAppend().appendFile(fileA).commit();
+    DataFile fileB = DataFiles
+        .builder(spec)
+        .withPath("src/test/resources/test-table/data/00000-1-c7557bc3-ae0d-46fb-804e-e9806abf81c7-00001.parquet")
+        .withFileSizeInBytes(1024)
+        .withRecordCount(3) // needs at least one record or else metrics will filter it out
+        .build();
 
-    //shell.setHiveConfValue("hive.execution.engine", "tez");
+    tableA.newAppend().appendFile(fileA).commit();
+    tableB.newAppend().appendFile(fileB).commit();
     shell.start();
   }
 
@@ -79,7 +84,7 @@ public class TestJoinTables {
   public void testJoinHivebergTablesWithStoredAs() {
     shell.execute("CREATE DATABASE source_db");
     shell.execute(new StringBuilder()
-        .append("CREATE TABLE source_db.table_a ")
+        .append("CREATE EXTERNAL TABLE source_db.table_a ")
         .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
         .append("STORED AS ")
         .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
@@ -90,7 +95,7 @@ public class TestJoinTables {
         .toString());
 
     shell.execute(new StringBuilder()
-        .append("CREATE TABLE source_db.table_b ")
+        .append("CREATE EXTERNAL TABLE source_db.table_b ")
         .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
         .append("STORED AS ")
         .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
@@ -100,8 +105,8 @@ public class TestJoinTables {
         .append("'")
         .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT table_a.* FROM source_db.table_a, source_db.table_b WHERE table_a.name = table_b.name");
-    assertEquals(0, result.size());
+    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a, source_db.table_b WHERE table_a.name = table_b.name");
+    assertEquals(3, result.size());
   }
 
   @Test
@@ -123,6 +128,7 @@ public class TestJoinTables {
         .append("'")
         .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT table_a.* FROM source_db.table_a, source_db.table_b WHERE table_a.name = table_b.name");
+    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a, source_db.table_b WHERE table_a.salary = table_b.salary");
+    assertEquals(5, result.size());
   }
 }
