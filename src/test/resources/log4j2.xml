@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <!--
   Copyright (C) 2020 Expedia, Inc.
 
@@ -14,7 +13,6 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-
 <Configuration monitorInterval="30">
   <Appenders>
     <Console name="STDOUT" target="SYSTEM_OUT">
