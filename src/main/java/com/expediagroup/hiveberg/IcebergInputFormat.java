@@ -73,12 +73,10 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     TableIdentifier id = TableIdentifier.parse(job.get(TABLE_NAME));
     table = catalog.loadTable(id);
 
-    //String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
     List<CombinedScanTask> tasks;
     if(job.get(TABLE_FILTER_SERIALIZED) == null) {
       tasks = Lists.newArrayList(table
           .newScan()
-          //.select(readColumns)
           .planTasks());
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
@@ -89,7 +87,6 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
       tasks = Lists.newArrayList(table
           .newScan()
           .filter(filter)
-          //.select(readColumns)
           .planTasks());
     }
     return createSplits(tasks, location.toString());
