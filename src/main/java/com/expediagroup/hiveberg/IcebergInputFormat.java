@@ -51,6 +51,11 @@ import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * CombineHiveInputFormat.AvoidSplitCombination is implemented to correctly delegate InputSplit
+ * creation to this class. See: https://stackoverflow.com/questions/29133275/
+ * custom-inputformat-getsplits-never-called-in-hive
+ */
 public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.AvoidSplitCombination {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
@@ -188,6 +193,10 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     }
   }
 
+  /**
+   * FileSplit is extended rather than implementing the InputSplit interface due to Hive's HiveInputFormat
+   * expecting a split which is an instance of FileSplit.
+   */
   private static class IcebergSplit extends FileSplit {
 
     private CombinedScanTask task;
