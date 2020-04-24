@@ -46,12 +46,14 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(StandaloneHiveRunner.class)
-public class TestIcebergInputFormat {
+public class TestInputFormatWithHadoopCatalog {
 
   @HiveSQL(files = {}, autoStart = true)
   private HiveShell shell;
 
   private File tableLocation;
+  private IcebergInputFormat format = new IcebergInputFormat();
+  private JobConf conf = new JobConf();
 
   @Before
   public void before() throws IOException {
@@ -82,8 +84,10 @@ public class TestIcebergInputFormat {
         .append("CREATE TABLE source_db.table_a ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
         .append(tableLocation.getAbsolutePath())
-        .append("'")
+        .append("')")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
@@ -104,8 +108,10 @@ public class TestIcebergInputFormat {
         .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
         .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
         .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
         .append(tableLocation.getAbsolutePath())
-        .append("'")
+        .append("')")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
@@ -120,7 +126,9 @@ public class TestIcebergInputFormat {
   public void testGetSplits() throws IOException {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
-    conf.set("location", tableLocation.getAbsolutePath());
+    conf.set("location", tableLocation.getAbsolutePath() + "/source_db/table_a");
+    conf.set("iceberg.warehouse.location", tableLocation.getAbsolutePath());
+    conf.set("iceberg.catalog", "hadoop.catalog");
     conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     assertEquals(splits.length, 1);
@@ -130,7 +138,9 @@ public class TestIcebergInputFormat {
   public void testGetRecordReader() throws IOException {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
-    conf.set("location", tableLocation.getAbsolutePath());
+    conf.set("location", tableLocation.getAbsolutePath() + "/source_db/table_a");
+    conf.set("iceberg.warehouse.location", tableLocation.getAbsolutePath());
+    conf.set("iceberg.catalog", "hadoop.catalog");
     conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     RecordReader reader = format.getRecordReader(splits[0], conf, null);
@@ -146,6 +156,35 @@ public class TestIcebergInputFormat {
       }
     }
     assertEquals(3, records.size() );
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetSplitsNoWarehouseLocation() throws IOException {
+    conf.set("iceberg.catalog", "hadoop.tables");
+    conf.set("location", "file:" + tableLocation);
+    format.getSplits(conf, 1);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetSplitsNoCatalog() throws IOException {
+    conf.set("location", "file:" + tableLocation);
+    conf.set("iceberg.warehouse.location", "file:" + tableLocation);
+    format.getSplits(conf, 1);
+  }
+
+  @Test(expected = IOException.class)
+  public void testGetSplitsInvalidWarehouseLocationUri() throws IOException {
+    conf.set("iceberg.warehouse.location", "http:");
+    conf.set("iceberg.catalog", "hadoop.tables");
+    format.getSplits(conf, 1);
+  }
+
+  @Test(expected = IOException.class)
+  public void testGetSplitsInvalidLocationUri() throws IOException {
+    conf.set("location", "http:");
+    conf.set("iceberg.warehouse.location", "http:");
+    conf.set("iceberg.catalog", "hadoop.tables");
+    format.getSplits(conf, 1);
   }
 
   @After

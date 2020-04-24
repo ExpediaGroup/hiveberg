@@ -66,7 +66,9 @@ public class TestIcebergSerDe {
   public void testDeserializer() throws IOException, SerDeException {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
-    conf.set("location", tableLocation.getAbsolutePath());
+    conf.set("location", tableLocation.getAbsolutePath() + "/source_db/table_a");
+    conf.set("iceberg.warehouse.location", tableLocation.getAbsolutePath());
+    conf.set("iceberg.catalog", "hadoop.catalog");
     conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     RecordReader reader = format.getRecordReader(splits[0], conf, null);

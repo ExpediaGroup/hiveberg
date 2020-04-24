@@ -46,6 +46,7 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopInputFile;
+import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
@@ -59,24 +60,19 @@ import org.slf4j.LoggerFactory;
 public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.AvoidSplitCombination {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
+  static final String CATALOG_NAME = "iceberg.catalog";
+  static final String REUSE_CONTAINERS = "iceberg.mr.reuse.containers";
   static final String TABLE_LOCATION = "location";
   static final String TABLE_NAME = "name";
   static final String TABLE_FILTER_SERIALIZED = "iceberg.filter.serialized";
+  static final String WAREHOUSE_LOCATION = "iceberg.warehouse.location";
 
   private Table table;
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-    String tableDir = job.get(TABLE_LOCATION);
-    URI location;
-    try {
-      location = new URI(tableDir);
-    } catch (URISyntaxException e) {
-      throw new IOException("Unable to create URI for table location: '" + tableDir + "'");
-    }
-    HadoopCatalog catalog = new HadoopCatalog(job,location.getPath());
-    TableIdentifier id = TableIdentifier.parse(job.get(TABLE_NAME));
-    table = catalog.loadTable(id);
+    table = findTable(job);
+    URI location = getPathURI(job.get(TABLE_LOCATION));
 
     List<CombinedScanTask> tasks;
     if(job.get(TABLE_FILTER_SERIALIZED) == null) {
@@ -85,7 +81,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
           .planTasks());
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
-          deserializeObject(job.get( TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
+          deserializeObject(job.get(TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
       SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
       Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
 
@@ -95,6 +91,39 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
           .planTasks());
     }
     return createSplits(tasks, location.toString());
+  }
+
+  private Table findTable(JobConf conf) throws IOException {
+    String catalogName = conf.get(CATALOG_NAME);
+    if (catalogName == null) {
+      throw new IllegalArgumentException("Catalog property: 'iceberg.catalog' not set in JobConf");
+    }
+    if (catalogName.equals("hadoop.tables")) {
+      URI tableLocation = getPathURI(conf.get(TABLE_LOCATION));
+      HadoopTables tables = new HadoopTables(conf);
+      table = tables.load(tableLocation.getPath());
+    } else if (catalogName.equals("hadoop.catalog")) {
+      URI warehouseLocation = getPathURI(conf.get(WAREHOUSE_LOCATION));
+      HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
+      TableIdentifier id = TableIdentifier.parse(conf.get(TABLE_NAME));
+      table = catalog.loadTable(id);
+    } else if (catalogName.equals("hive.catalog")) {
+      //TODO Implement HiveCatalog
+    }
+    return table;
+  }
+
+  private URI getPathURI(String propertyPath) throws IOException {
+    if (propertyPath == null) {
+      throw new IllegalArgumentException("Path set to null in JobConf");
+    }
+    URI location;
+    try {
+      location = new URI(propertyPath);
+    } catch (URISyntaxException e) {
+      throw new IOException("Unable to create URI for table location: '" + propertyPath + "'", e);
+    }
+    return location;
   }
 
   private InputSplit[] createSplits(List<CombinedScanTask> tasks, String name) {

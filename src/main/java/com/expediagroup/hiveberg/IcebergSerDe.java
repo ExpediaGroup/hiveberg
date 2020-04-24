@@ -15,6 +15,10 @@
  */
 package com.expediagroup.hiveberg;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -30,18 +34,27 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
 
 public class IcebergSerDe extends AbstractSerDe {
+
+  static final String CATALOG_NAME = "iceberg.catalog";
+  static final String TABLE_LOCATION = "location";
+  static final String TABLE_NAME = "name";
+  static final String WAREHOUSE_LOCATION = "iceberg.warehouse.location";
 
   private Schema schema;
   private ObjectInspector inspector;
 
   @Override
   public void initialize(@Nullable Configuration configuration, Properties properties) throws SerDeException {
-    HadoopCatalog catalog = new HadoopCatalog(configuration, properties.getProperty("location"));
-    TableIdentifier id = TableIdentifier.parse(properties.getProperty("name"));
-    Table table = catalog.loadTable(id);
+    Table table = null;
+    try {
+      table = findTable(configuration, properties);
+    } catch (IOException e) {
+      throw new UncheckedIOException("Unable to load table: ", e);
+    }
     this.schema = table.schema();
 
     try {
@@ -49,6 +62,40 @@ public class IcebergSerDe extends AbstractSerDe {
     } catch (Exception e) {
       throw new SerDeException(e);
     }
+  }
+
+  private Table findTable(Configuration conf, Properties properties) throws IOException {
+    String catalogName = properties.getProperty(CATALOG_NAME);
+    if (catalogName == null) {
+      throw new IllegalArgumentException("Catalog property: 'iceberg.catalog' not set in JobConf");
+    }
+    if (catalogName.equals("hadoop.tables")) {
+      HadoopTables tables = new HadoopTables(conf);
+      URI tableLocation = getPathURI(properties.getProperty(TABLE_LOCATION));
+      return tables.load(tableLocation.getPath());
+    } else if (catalogName.equals("hadoop.catalog")) {
+      URI warehouseLocation = getPathURI(properties.getProperty(WAREHOUSE_LOCATION));
+      HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
+      TableIdentifier id = TableIdentifier.parse(properties.getProperty(TABLE_NAME));
+      return catalog.loadTable(id);
+    } else if (catalogName.equals("hive.catalog")) {
+      //TODO Implement HiveCatalog
+      return null;
+    }
+    return null;
+  }
+
+  private URI getPathURI(String propertyPath) throws IOException {
+    if (propertyPath == null) {
+      throw new IllegalArgumentException("Table 'iceberg.warehouse.location' not set in JobConf");
+    }
+    URI location;
+    try {
+      location = new URI(propertyPath);
+    } catch (URISyntaxException e) {
+      throw new IOException("Unable to create URI for table location: '" + propertyPath + "'", e);
+    }
+    return location;
   }
 
   @Override
