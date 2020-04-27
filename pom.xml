@@ -133,6 +133,7 @@
           <excludes>
             <exclude>src/main/java/com/expediagroup/hiveberg/IcebergFilterFactory.java</exclude>
             <exclude>src/main/java/com/expediagroup/hiveberg/SerializationUtil.java</exclude>
+            <exclude>src/test/java/com/expediagroup/hiveberg/TestHelpers.java</exclude>
           </excludes>
         </configuration>
       </plugin>

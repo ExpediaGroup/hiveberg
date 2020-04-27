@@ -20,16 +20,21 @@ import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.iceberg.DataFile;
-import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.data.Record;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
 import static org.apache.iceberg.types.Types.NestedField.optional;
@@ -42,13 +47,16 @@ public class TestJoinTablesWithHadoopTables {
   @HiveSQL(files = {}, autoStart = false)
   private HiveShell shell;
 
+  @Rule
+  public TemporaryFolder temp = new TemporaryFolder();
+
   private File tableLocationA;
   private File tableLocationB;
 
   @Before
   public void before() throws IOException {
-    tableLocationA = java.nio.file.Files.createTempDirectory("tempA").toFile();
-    tableLocationB = java.nio.file.Files.createTempDirectory("tempA").toFile();
+    tableLocationA = temp.newFolder("table_a");
+    tableLocationB = temp.newFolder("table_b");
     Schema schemaA = new Schema(optional(1, "first_name", Types.StringType.get()),
         optional(2, "salary", Types.LongType.get()),
         optional(3, "id", Types.LongType.get()));
@@ -58,23 +66,22 @@ public class TestJoinTablesWithHadoopTables {
     PartitionSpec spec = PartitionSpec.unpartitioned();
 
     HadoopTables tables = new HadoopTables();
-
     Table tableA = tables.create(schemaA, spec, tableLocationA.getAbsolutePath());
     Table tableB = tables.create(schemaB, spec, tableLocationB.getAbsolutePath());
 
-    DataFile fileA = DataFiles
-        .builder(spec)
-        .withPath("src/test/resources/test-table/data/table_a/00000-1-3c678cc3-412a-4290-99f4-5cc0a5612600-00000.parquet")
-        .withFileSizeInBytes(1024)
-        .withRecordCount(3) // needs at least one record or else metrics will filter it out
-        .build();
+    List<Record> tableAData = new ArrayList<>();
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Ella", 3000L, 1L)));
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Jean", 5000L, 2L)));
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Joe", 2000L, 3L)));
 
-    DataFile fileB = DataFiles
-        .builder(spec)
-        .withPath("src/test/resources/test-table/data/table_b/00000-1-c7557bc3-ae0d-46fb-804e-e9806abf81c7-00000.parquet")
-        .withFileSizeInBytes(1024)
-        .withRecordCount(3) // needs at least one record or else metrics will filter it out
-        .build();
+    DataFile fileA = TestHelpers.writeFile(temp.newFile(), tableA, null, FileFormat.PARQUET, tableAData);
+
+    List<Record> tableBData = new ArrayList<>();
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Michael", 3000L)));
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Andy", 3000L)));
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Berta", 4000L)));
+
+    DataFile fileB = TestHelpers.writeFile(temp.newFile(), tableB, null, FileFormat.PARQUET, tableBData);
 
     tableA.newAppend().appendFile(fileA).commit();
     tableB.newAppend().appendFile(fileB).commit();
@@ -107,6 +114,8 @@ public class TestJoinTablesWithHadoopTables {
         .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.tables'")
         .append(")")
         .toString());
+
+    List<Object[]> resultx = shell.executeStatement("select * from source_db.table_b");
 
     List<Object[]> result = shell.executeStatement("SELECT table_a.first_name, table_b.name, table_b.salary " +
         "FROM source_db.table_a, source_db.table_b WHERE table_a.salary = table_b.salary");

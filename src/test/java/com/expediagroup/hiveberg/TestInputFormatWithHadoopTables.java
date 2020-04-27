@@ -21,12 +21,13 @@ import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.iceberg.DataFile;
-import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -34,10 +35,13 @@ import org.apache.iceberg.data.Record;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
 import static org.apache.iceberg.types.Types.NestedField.optional;
+import static org.apache.iceberg.types.Types.NestedField.required;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
@@ -47,27 +51,29 @@ public class TestInputFormatWithHadoopTables {
   @HiveSQL(files = {}, autoStart = true)
   private HiveShell shell;
 
+  @Rule
+  public TemporaryFolder temp = new TemporaryFolder();
+
   private File tableLocation;
   private IcebergInputFormat format = new IcebergInputFormat();
   private JobConf conf = new JobConf();
 
   @Before
   public void before() throws IOException {
-    tableLocation = java.nio.file.Files.createTempDirectory("temp").toFile();
-    Schema schema = new Schema(optional(1, "name", Types.StringType.get()),
-        optional(2, "salary", Types.LongType.get()));
+    tableLocation = temp.newFolder();
+    Schema schema = new Schema(required(1, "id", Types.LongType.get()),
+        optional(2, "data", Types.StringType.get()));
     PartitionSpec spec = PartitionSpec.unpartitioned();
 
     HadoopTables tables = new HadoopTables();
     Table table = tables.create(schema, spec, tableLocation.getAbsolutePath());
 
-    DataFile fileA = DataFiles
-        .builder(spec)
-        .withPath("src/test/resources/test-table/data/00000-1-c7557bc3-ae0d-46fb-804e-e9806abf81c7-00000.parquet")
-        .withFileSizeInBytes(1024)
-        .withRecordCount(3) // needs at least one record or else metrics will filter it out
-        .build();
+    List<Record> data = new ArrayList<>();
+    data.add(TestHelpers.createSimpleRecord(1L, "Michael"));
+    data.add(TestHelpers.createSimpleRecord(2L, "Andy"));
+    data.add(TestHelpers.createSimpleRecord(3L, "Berta"));
 
+    DataFile fileA = TestHelpers.writeFile(temp.newFile(), table, null, FileFormat.PARQUET, data);
     table.newAppend().appendFile(fileA).commit();
   }
 
@@ -89,9 +95,9 @@ public class TestInputFormatWithHadoopTables {
     List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
 
     assertEquals(3, result.size());
-    assertArrayEquals(new Object[]{"Michael", 3000L}, result.get(0));
-    assertArrayEquals(new Object[]{"Andy", 3000L}, result.get(1));
-    assertArrayEquals(new Object[]{"Berta", 4000L}, result.get(2));
+    assertArrayEquals(new Object[]{1L, "Michael"}, result.get(0));
+    assertArrayEquals(new Object[]{2L, "Andy"}, result.get(1));
+    assertArrayEquals(new Object[]{3L, "Berta"}, result.get(2));
   }
 
   @Test

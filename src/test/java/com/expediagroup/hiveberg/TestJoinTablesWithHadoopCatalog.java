@@ -20,18 +20,23 @@ import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.DataFile;
-import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.data.Record;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
 import static org.apache.iceberg.types.Types.NestedField.optional;
@@ -44,11 +49,14 @@ public class TestJoinTablesWithHadoopCatalog {
   @HiveSQL(files = {}, autoStart = false)
   private HiveShell shell;
 
+  @Rule
+  public TemporaryFolder temp = new TemporaryFolder();
+
   private File tableLocation;
 
   @Before
   public void before() throws IOException {
-    tableLocation = java.nio.file.Files.createTempDirectory("temp").toFile();
+    tableLocation = temp.newFolder("table_a");
     Schema schemaA = new Schema(optional(1, "first_name", Types.StringType.get()),
         optional(2, "salary", Types.LongType.get()),
         optional(3, "id", Types.LongType.get()));
@@ -66,19 +74,19 @@ public class TestJoinTablesWithHadoopCatalog {
     TableIdentifier idB = TableIdentifier.parse("source_db.table_b");
     Table tableB = catalog.createTable(idB, schemaB, spec);
 
-    DataFile fileA = DataFiles
-        .builder(spec)
-        .withPath("src/test/resources/test-table/data/table_a/00000-1-3c678cc3-412a-4290-99f4-5cc0a5612600-00000.parquet")
-        .withFileSizeInBytes(1024)
-        .withRecordCount(3) // needs at least one record or else metrics will filter it out
-        .build();
+    List<Record> tableAData = new ArrayList<>();
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Ella", 3000L, 1L)));
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Jean", 5000L, 2L)));
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Joe", 2000L, 3L)));
 
-    DataFile fileB = DataFiles
-        .builder(spec)
-        .withPath("src/test/resources/test-table/data/table_b/00000-1-c7557bc3-ae0d-46fb-804e-e9806abf81c7-00000.parquet")
-        .withFileSizeInBytes(1024)
-        .withRecordCount(3) // needs at least one record or else metrics will filter it out
-        .build();
+    DataFile fileA = TestHelpers.writeFile(temp.newFile(), tableA, null, FileFormat.PARQUET, tableAData);
+
+    List<Record> tableBData = new ArrayList<>();
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Michael", 3000L)));
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Andy", 3000L)));
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Berta", 4000L)));
+
+    DataFile fileB = TestHelpers.writeFile(temp.newFile(), tableB, null, FileFormat.PARQUET, tableBData);
 
     tableA.newAppend().appendFile(fileA).commit();
     tableB.newAppend().appendFile(fileB).commit();
