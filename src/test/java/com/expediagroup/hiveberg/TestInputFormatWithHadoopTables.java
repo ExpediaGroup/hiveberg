@@ -1,19 +1,36 @@
+/**
+ * Copyright (C) 2020 Expedia, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.expediagroup.hiveberg;
 
+import com.google.common.collect.Lists;
 import com.klarna.hiverunner.HiveShell;
 import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapred.InputSplit;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.RecordReader;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.data.Record;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
 import org.junit.Before;
@@ -31,6 +48,8 @@ public class TestInputFormatWithHadoopTables {
   private HiveShell shell;
 
   private File tableLocation;
+  private IcebergInputFormat format = new IcebergInputFormat();
+  private JobConf conf = new JobConf();
 
   @Before
   public void before() throws IOException {
@@ -73,5 +92,49 @@ public class TestInputFormatWithHadoopTables {
     assertArrayEquals(new Object[]{"Michael", 3000L}, result.get(0));
     assertArrayEquals(new Object[]{"Andy", 3000L}, result.get(1));
     assertArrayEquals(new Object[]{"Berta", 4000L}, result.get(2));
+  }
+
+  @Test
+  public void testGetSplits() throws IOException {
+    IcebergInputFormat format = new IcebergInputFormat();
+    JobConf conf = new JobConf();
+    conf.set("location", tableLocation.getAbsolutePath());
+    conf.set("iceberg.catalog", "hadoop.tables");
+    InputSplit[] splits = format.getSplits(conf, 1);
+    assertEquals(splits.length, 1);
+  }
+
+  @Test
+  public void testGetRecordReader() throws IOException {
+    IcebergInputFormat format = new IcebergInputFormat();
+    JobConf conf = new JobConf();
+    conf.set("location", tableLocation.getAbsolutePath());
+    conf.set("iceberg.catalog", "hadoop.tables");
+    InputSplit[] splits = format.getSplits(conf, 1);
+    RecordReader reader = format.getRecordReader(splits[0], conf, null);
+    IcebergWritable value = (IcebergWritable) reader.createValue();
+
+    List<Record> records = Lists.newArrayList();
+    boolean unfinished = true;
+    while(unfinished) {
+      if (reader.next(null, value)) {
+        records.add(value.getRecord().copy());
+      } else  {
+        unfinished = false;
+      }
+    }
+    assertEquals(3, records.size() );
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetSplitsNoLocation() throws IOException {
+    conf.set("iceberg.catalog", "hadoop.tables");
+    format.getSplits(conf, 1);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetSplitsNoCatalog() throws IOException {
+    conf.set("location", "file:" + tableLocation);
+    format.getSplits(conf, 1);
   }
 }

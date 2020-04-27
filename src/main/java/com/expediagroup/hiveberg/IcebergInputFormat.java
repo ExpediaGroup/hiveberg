@@ -98,17 +98,21 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     if (catalogName == null) {
       throw new IllegalArgumentException("Catalog property: 'iceberg.catalog' not set in JobConf");
     }
-    if (catalogName.equals("hadoop.tables")) {
-      URI tableLocation = getPathURI(conf.get(TABLE_LOCATION));
-      HadoopTables tables = new HadoopTables(conf);
-      table = tables.load(tableLocation.getPath());
-    } else if (catalogName.equals("hadoop.catalog")) {
-      URI warehouseLocation = getPathURI(conf.get(WAREHOUSE_LOCATION));
-      HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
-      TableIdentifier id = TableIdentifier.parse(conf.get(TABLE_NAME));
-      table = catalog.loadTable(id);
-    } else if (catalogName.equals("hive.catalog")) {
-      //TODO Implement HiveCatalog
+    switch (catalogName) {
+      case "hadoop.tables":
+        URI tableLocation = getPathURI(conf.get(TABLE_LOCATION));
+        HadoopTables tables = new HadoopTables(conf);
+        table = tables.load(tableLocation.getPath());
+        break;
+      case "hadoop.catalog":
+        URI warehouseLocation = getPathURI(conf.get(WAREHOUSE_LOCATION));
+        HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
+        TableIdentifier id = TableIdentifier.parse(conf.get(TABLE_NAME));
+        table = catalog.loadTable(id);
+        break;
+      case "hive.catalog":
+        //TODO Implement HiveCatalog
+        break;
     }
     return table;
   }
