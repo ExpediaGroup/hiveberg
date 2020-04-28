@@ -94,11 +94,6 @@
       <version>4.12</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>com.nudler</groupId>
-      <artifactId>hoveberg</artifactId>
-      <version>1.0-SNAPSHOT</version>
-    </dependency>
   </dependencies>
 
   <build>
@@ -138,16 +133,6 @@
         </configuration>
       </plugin>
     </plugins>
-
-    <resources>
-      <resource>
-        <directory>src/test/resources</directory>
-        <targetPath>${project.build.directory}/classes</targetPath>
-        <includes>
-          <include>**/log4j2.xml</include>
-        </includes>
-      </resource>
-    </resources>
   </build>
 
 </project>

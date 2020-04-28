@@ -32,17 +32,11 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.io.Writable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.hadoop.HadoopCatalog;
-import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
 
-public class IcebergSerDe extends AbstractSerDe {
+import static com.expediagroup.hiveberg.Util.findTable;
 
-  static final String CATALOG_NAME = "iceberg.catalog";
-  static final String TABLE_LOCATION = "location";
-  static final String TABLE_NAME = "name";
-  static final String WAREHOUSE_LOCATION = "iceberg.warehouse.location";
+public class IcebergSerDe extends AbstractSerDe {
 
   private Schema schema;
   private ObjectInspector inspector;
@@ -62,27 +56,6 @@ public class IcebergSerDe extends AbstractSerDe {
     } catch (Exception e) {
       throw new SerDeException(e);
     }
-  }
-
-  private Table findTable(Configuration conf, Properties properties) throws IOException {
-    String catalogName = properties.getProperty(CATALOG_NAME);
-    if (catalogName == null) {
-      throw new IllegalArgumentException("Catalog property: 'iceberg.catalog' not set in JobConf");
-    }
-    if (catalogName.equals("hadoop.tables")) {
-      HadoopTables tables = new HadoopTables(conf);
-      URI tableLocation = getPathURI(properties.getProperty(TABLE_LOCATION));
-      return tables.load(tableLocation.getPath());
-    } else if (catalogName.equals("hadoop.catalog")) {
-      URI warehouseLocation = getPathURI(properties.getProperty(WAREHOUSE_LOCATION));
-      HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
-      TableIdentifier id = TableIdentifier.parse(properties.getProperty(TABLE_NAME));
-      return catalog.loadTable(id);
-    } else if (catalogName.equals("hive.catalog")) {
-      //TODO Implement HiveCatalog
-      return null;
-    }
-    return null;
   }
 
   private URI getPathURI(String propertyPath) throws IOException {

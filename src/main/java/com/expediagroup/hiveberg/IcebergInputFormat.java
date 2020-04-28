@@ -20,7 +20,6 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
@@ -41,16 +40,16 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.Expression;
-import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopInputFile;
-import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static com.expediagroup.hiveberg.Util.findTable;
+import static com.expediagroup.hiveberg.Util.getPathURI;
 
 /**
  * CombineHiveInputFormat.AvoidSplitCombination is implemented to correctly delegate InputSplit
@@ -60,12 +59,8 @@ import org.slf4j.LoggerFactory;
 public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.AvoidSplitCombination {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
-  static final String CATALOG_NAME = "iceberg.catalog";
-  static final String REUSE_CONTAINERS = "iceberg.mr.reuse.containers";
   static final String TABLE_LOCATION = "location";
-  static final String TABLE_NAME = "name";
   static final String TABLE_FILTER_SERIALIZED = "iceberg.filter.serialized";
-  static final String WAREHOUSE_LOCATION = "iceberg.warehouse.location";
 
   private Table table;
 
@@ -91,43 +86,6 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
           .planTasks());
     }
     return createSplits(tasks, location.toString());
-  }
-
-  private Table findTable(JobConf conf) throws IOException {
-    String catalogName = conf.get(CATALOG_NAME);
-    if (catalogName == null) {
-      throw new IllegalArgumentException("Catalog property: 'iceberg.catalog' not set in JobConf");
-    }
-    switch (catalogName) {
-      case "hadoop.tables":
-        URI tableLocation = getPathURI(conf.get(TABLE_LOCATION));
-        HadoopTables tables = new HadoopTables(conf);
-        table = tables.load(tableLocation.getPath());
-        break;
-      case "hadoop.catalog":
-        URI warehouseLocation = getPathURI(conf.get(WAREHOUSE_LOCATION));
-        HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
-        TableIdentifier id = TableIdentifier.parse(conf.get(TABLE_NAME));
-        table = catalog.loadTable(id);
-        break;
-      case "hive.catalog":
-        //TODO Implement HiveCatalog
-        break;
-    }
-    return table;
-  }
-
-  private URI getPathURI(String propertyPath) throws IOException {
-    if (propertyPath == null) {
-      throw new IllegalArgumentException("Path set to null in JobConf");
-    }
-    URI location;
-    try {
-      location = new URI(propertyPath);
-    } catch (URISyntaxException e) {
-      throw new IOException("Unable to create URI for table location: '" + propertyPath + "'", e);
-    }
-    return location;
   }
 
   private InputSplit[] createSplits(List<CombinedScanTask> tasks, String name) {

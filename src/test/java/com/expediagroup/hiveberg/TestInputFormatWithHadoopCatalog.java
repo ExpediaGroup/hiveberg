@@ -169,13 +169,23 @@ public class TestInputFormatWithHadoopCatalog {
   public void testGetSplitsNoWarehouseLocation() throws IOException {
     conf.set("iceberg.catalog", "hadoop.catalog");
     conf.set("location", "file:" + tableLocation);
+    conf.set("name", "source_db.table_a");
+    format.getSplits(conf, 1);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetSplitsNoLocation() throws IOException {
+    conf.set("iceberg.catalog", "hadoop.catalog");
+    conf.set("iceberg.warehouse.location", "file:" + tableLocation);
+    conf.set("name", "source_db.table_a");
     format.getSplits(conf, 1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGetSplitsNoCatalog() throws IOException {
-    conf.set("location", "file:" + tableLocation);
     conf.set("iceberg.warehouse.location", "file:" + tableLocation);
+    conf.set("location", "file:" + tableLocation);
+    conf.set("name", "source_db.table_a");
     format.getSplits(conf, 1);
   }
 
@@ -183,6 +193,8 @@ public class TestInputFormatWithHadoopCatalog {
   public void testGetSplitsInvalidWarehouseLocationUri() throws IOException {
     conf.set("iceberg.warehouse.location", "http:");
     conf.set("iceberg.catalog", "hadoop.catalog");
+    conf.set("location", "file:" + tableLocation);
+    conf.set("name", "source_db.table_a");
     format.getSplits(conf, 1);
   }
 

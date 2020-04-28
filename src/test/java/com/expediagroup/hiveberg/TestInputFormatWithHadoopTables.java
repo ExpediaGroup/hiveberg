@@ -106,6 +106,7 @@ public class TestInputFormatWithHadoopTables {
     JobConf conf = new JobConf();
     conf.set("location", tableLocation.getAbsolutePath());
     conf.set("iceberg.catalog", "hadoop.tables");
+    conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     assertEquals(splits.length, 1);
   }
@@ -116,6 +117,7 @@ public class TestInputFormatWithHadoopTables {
     JobConf conf = new JobConf();
     conf.set("location", tableLocation.getAbsolutePath());
     conf.set("iceberg.catalog", "hadoop.tables");
+    conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     RecordReader reader = format.getRecordReader(splits[0], conf, null);
     IcebergWritable value = (IcebergWritable) reader.createValue();
@@ -135,11 +137,20 @@ public class TestInputFormatWithHadoopTables {
   @Test(expected = IllegalArgumentException.class)
   public void testGetSplitsNoLocation() throws IOException {
     conf.set("iceberg.catalog", "hadoop.tables");
+    conf.set("name", "source_db.table_a");
     format.getSplits(conf, 1);
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testGetSplitsNoCatalog() throws IOException {
+    conf.set("location", "file:" + tableLocation);
+    conf.set("name", "source_db.table_a");
+    format.getSplits(conf, 1);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testGetSplitsNoName() throws IOException {
+    conf.set("iceberg.catalog", "hadoop.tables");
     conf.set("location", "file:" + tableLocation);
     format.getSplits(conf, 1);
   }
