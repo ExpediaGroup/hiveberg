@@ -103,7 +103,7 @@ public class TestHelpers {
   }
 
   /**
-   * Based off: https://github.com/apache/incubator-iceberg/blob/master/
+   * Based on: https://github.com/apache/incubator-iceberg/blob/master/
    * spark/src/test/java/org/apache/iceberg/spark/source/SimpleRecord.java
    */
   public static Record createSimpleRecord(long id, String data) {
