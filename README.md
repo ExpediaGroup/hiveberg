@@ -18,11 +18,11 @@ Ultimately we would like to contribute this Hive Input Format to Iceberg so this
 To use the `IcebergInputFormat` you need to create a Hive table using DDL:
 ```sql
 CREATE TABLE source_db.table_a
-   ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe'
-   STORED AS
-        INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat'
-        OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
-   LOCATION 'path_to_iceberg_data_warehouse';
+  ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe'
+  STORED AS
+    INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat'
+    OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
+  LOCATION 'path_to_iceberg_data_warehouse';
 ```
 
 You must ensure that:
@@ -39,8 +39,8 @@ TableIdentifier id = TableIdentifier.parse("source_db.table_a");
 This is implemented as a simplified option for creating Hiveberg tables. The Hive DDL should instead look like:
 ```sql
 CREATE TABLE source_db.table_a
-   STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler'
-   LOCATION 'path_to_iceberg_data_warehouse';
+  STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler'
+  LOCATION 'path_to_iceberg_data_warehouse';
 ```
 
 ### Predicate Pushdown
