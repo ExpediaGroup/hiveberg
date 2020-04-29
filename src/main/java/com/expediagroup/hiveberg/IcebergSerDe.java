@@ -17,8 +17,6 @@ package com.expediagroup.hiveberg;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -58,26 +56,13 @@ public class IcebergSerDe extends AbstractSerDe {
     }
   }
 
-  private URI getPathURI(String propertyPath) throws IOException {
-    if (propertyPath == null) {
-      throw new IllegalArgumentException("Table 'iceberg.warehouse.location' not set in JobConf");
-    }
-    URI location;
-    try {
-      location = new URI(propertyPath);
-    } catch (URISyntaxException e) {
-      throw new IOException("Unable to create URI for table location: '" + propertyPath + "'", e);
-    }
-    return location;
-  }
-
   @Override
   public Class<? extends Writable> getSerializedClass() {
     return null;
   }
 
   @Override
-  public Writable serialize(Object o, ObjectInspector objectInspector) throws SerDeException {
+  public Writable serialize(Object o, ObjectInspector objectInspector) {
     return null;
   }
 
@@ -87,7 +72,7 @@ public class IcebergSerDe extends AbstractSerDe {
   }
 
   @Override
-  public Object deserialize(Writable writable) throws SerDeException {
+  public Object deserialize(Writable writable) {
     IcebergWritable icebergWritable = (IcebergWritable) writable;
     Schema schema = icebergWritable.getSchema();
     List<Types.NestedField> fields = schema.columns();
@@ -101,7 +86,7 @@ public class IcebergSerDe extends AbstractSerDe {
   }
 
   @Override
-  public ObjectInspector getObjectInspector() throws SerDeException {
+  public ObjectInspector getObjectInspector() {
     return inspector;
   }
 }
