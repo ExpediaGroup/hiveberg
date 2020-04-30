@@ -49,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static com.expediagroup.hiveberg.TableResolverUtil.pathAsURI;
+import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromJob;
 
 /**
  * CombineHiveInputFormat.AvoidSplitCombination is implemented to correctly delegate InputSplit
@@ -65,7 +66,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-    table = TableResolverUtil.resolveTableFromJob(job);
+    table = resolveTableFromJob(job);
     URI location = pathAsURI(job.get(TABLE_LOCATION));
 
     List<CombinedScanTask> tasks;

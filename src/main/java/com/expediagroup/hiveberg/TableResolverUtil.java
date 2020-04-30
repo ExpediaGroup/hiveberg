@@ -26,7 +26,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopTables;
 
-class TableResolverUtil {
+final class TableResolverUtil {
 
   static final String CATALOG_NAME = "iceberg.catalog";
   static final String TABLE_LOCATION = "location";
@@ -36,7 +36,7 @@ class TableResolverUtil {
   private TableResolverUtil() {
   }
 
-  public static Table resolveTableFromJob(JobConf conf) throws IOException {
+  static Table resolveTableFromJob(JobConf conf) throws IOException {
     Properties properties = new Properties();
       properties.setProperty(CATALOG_NAME, extractProperty(conf, CATALOG_NAME));
       properties.setProperty(TABLE_LOCATION, extractProperty(conf, TABLE_LOCATION));
@@ -69,7 +69,7 @@ class TableResolverUtil {
     return null;
   }
 
-  public static URI pathAsURI(String path) throws IOException {
+  static URI pathAsURI(String path) throws IOException {
     if (path == null) {
       throw new IllegalArgumentException("Path is null.");
     }
