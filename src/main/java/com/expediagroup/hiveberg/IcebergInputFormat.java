@@ -29,6 +29,7 @@ import org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
 import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
+import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
@@ -69,10 +70,12 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     table = resolveTableFromJob(job);
     URI location = pathAsURI(job.get(TABLE_LOCATION));
 
+    String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
     List<CombinedScanTask> tasks;
     if(job.get(TABLE_FILTER_SERIALIZED) == null) {
       tasks = Lists.newArrayList(table
           .newScan()
+          .select(readColumns)
           .planTasks());
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
@@ -82,6 +85,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
 
       tasks = Lists.newArrayList(table
           .newScan()
+          .select(readColumns)
           .filter(filter)
           .planTasks());
     }

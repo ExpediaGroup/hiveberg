@@ -44,7 +44,12 @@ CREATE TABLE source_db.table_a
 ```
 
 ### Predicate Pushdown
-Pushdown of the HiveSQL `WHERE` clause has been implemented so that filters are pushed to the Iceberg `TableScan` level as well as the Parquet `Reader`. ORC implementations are still in the works. 
+Pushdown of the HiveSQL `WHERE` clause has been implemented so that filters are pushed to the Iceberg `TableScan` level as well as the Parquet `Reader`. ORC implementations are still in the works.
+**Note:** Predicate pushdown to the Iceberg table scan is only activated when using the `IcebergStorageHandler`. 
+
+
+### Column Projection
+The `IcebergInputFormat` will project columns from the HiveSQL `SELECT` section down to the Iceberg readers to reduce the number of columns read. 
 
 # Legal
 This project is available under the [Apache 2.0 License](http://www.apache.org/licenses/LICENSE-2.0.html).
