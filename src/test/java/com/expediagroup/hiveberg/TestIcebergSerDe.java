@@ -17,32 +17,40 @@ package com.expediagroup.hiveberg;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.iceberg.DataFile;
-import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.data.Record;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 import static org.apache.iceberg.types.Types.NestedField.optional;
 
 public class TestIcebergSerDe {
 
   private File tableLocation;
-  private Table table;
+
+  @Rule
+  public TemporaryFolder temp = new TemporaryFolder();
 
   @Before
   public void before() throws IOException {
-    tableLocation = java.nio.file.Files.createTempDirectory("temp").toFile();
+    tableLocation = temp.newFolder();
     Schema schema = new Schema(optional(1, "name", Types.StringType.get()),
         optional(2, "salary", Types.LongType.get()));
     PartitionSpec spec = PartitionSpec.unpartitioned();
@@ -52,12 +60,12 @@ public class TestIcebergSerDe {
     TableIdentifier id = TableIdentifier.parse("source_db.table_a");
     Table table = catalog.createTable(id, schema, spec);
 
-    DataFile fileA = DataFiles
-        .builder(spec)
-        .withPath("src/test/resources/test-table/data/00000-1-c7557bc3-ae0d-46fb-804e-e9806abf81c7-00000.parquet")
-        .withFileSizeInBytes(1024)
-        .withRecordCount(3) // needs at least one record or else metrics will filter it out
-        .build();
+    List<Record> data = new ArrayList<>();
+    data.add(TestHelpers.createCustomRecord(schema, Arrays.asList("Michael", 3000L)));
+    data.add(TestHelpers.createCustomRecord(schema, Arrays.asList("Andy", 3000L)));
+    data.add(TestHelpers.createCustomRecord(schema, Arrays.asList("Berta", 4000L)));
+
+    DataFile fileA = TestHelpers.writeFile(temp.newFile(), table, null, FileFormat.PARQUET, data);
 
     table.newAppend().appendFile(fileA).commit();
   }
@@ -66,7 +74,9 @@ public class TestIcebergSerDe {
   public void testDeserializer() throws IOException, SerDeException {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
-    conf.set("location", tableLocation.getAbsolutePath());
+    conf.set("location", tableLocation.getAbsolutePath() + "/source_db/table_a");
+    conf.set("iceberg.warehouse.location", tableLocation.getAbsolutePath());
+    conf.set("iceberg.catalog", "hadoop.catalog");
     conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     RecordReader reader = format.getRecordReader(splits[0], conf, null);
@@ -75,5 +85,6 @@ public class TestIcebergSerDe {
 
     IcebergSerDe serde = new IcebergSerDe();
     Object row = serde.deserialize(value);
+    //TODO: Finish this test with assertions
   }
 }

@@ -20,60 +20,73 @@ import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.DataFile;
-import org.apache.iceberg.DataFiles;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.data.Record;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
 import static org.apache.iceberg.types.Types.NestedField.optional;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(StandaloneHiveRunner.class)
-public class TestJoinTables {
+public class TestJoinTablesWithHadoopCatalog {
 
   @HiveSQL(files = {}, autoStart = false)
   private HiveShell shell;
+
+  @Rule
+  public TemporaryFolder temp = new TemporaryFolder();
 
   private File tableLocation;
 
   @Before
   public void before() throws IOException {
-    tableLocation = java.nio.file.Files.createTempDirectory("temp").toFile();
-    Schema schema = new Schema(optional(1, "name", Types.StringType.get()),
+    tableLocation = temp.newFolder("table_a");
+    Schema schemaA = new Schema(optional(1, "first_name", Types.StringType.get()),
+        optional(2, "salary", Types.LongType.get()),
+        optional(3, "id", Types.LongType.get()));
+    Schema schemaB = new Schema(optional(1, "name", Types.StringType.get()),
         optional(2, "salary", Types.LongType.get()));
+
     PartitionSpec spec = PartitionSpec.unpartitioned();
 
     Configuration conf = new Configuration();
     HadoopCatalog catalog = new HadoopCatalog(conf, tableLocation.getAbsolutePath());
 
     TableIdentifier idA = TableIdentifier.parse("source_db.table_a");
-    Table tableA = catalog.createTable(idA, schema, spec);
+    Table tableA = catalog.createTable(idA, schemaA, spec);
 
     TableIdentifier idB = TableIdentifier.parse("source_db.table_b");
-    Table tableB = catalog.createTable(idB, schema, spec);
+    Table tableB = catalog.createTable(idB, schemaB, spec);
 
-    DataFile fileA = DataFiles
-        .builder(spec)
-        .withPath("src/test/resources/test-table/data/00000-1-c7557bc3-ae0d-46fb-804e-e9806abf81c7-00000.parquet")
-        .withFileSizeInBytes(1024)
-        .withRecordCount(3) // needs at least one record or else metrics will filter it out
-        .build();
+    List<Record> tableAData = new ArrayList<>();
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Ella", 3000L, 1L)));
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Jean", 5000L, 2L)));
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Joe", 2000L, 3L)));
 
-    DataFile fileB = DataFiles
-        .builder(spec)
-        .withPath("src/test/resources/test-table/data/00000-1-c7557bc3-ae0d-46fb-804e-e9806abf81c7-00001.parquet")
-        .withFileSizeInBytes(1024)
-        .withRecordCount(3) // needs at least one record or else metrics will filter it out
-        .build();
+    DataFile fileA = TestHelpers.writeFile(temp.newFile(), tableA, null, FileFormat.PARQUET, tableAData);
+
+    List<Record> tableBData = new ArrayList<>();
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Michael", 3000L)));
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Andy", 3000L)));
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Berta", 4000L)));
+
+    DataFile fileB = TestHelpers.writeFile(temp.newFile(), tableB, null, FileFormat.PARQUET, tableBData);
 
     tableA.newAppend().appendFile(fileA).commit();
     tableB.newAppend().appendFile(fileB).commit();
@@ -90,8 +103,10 @@ public class TestJoinTables {
         .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
         .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
         .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
         .append(tableLocation.getAbsolutePath())
-        .append("'")
+        .append("')")
         .toString());
 
     shell.execute(new StringBuilder()
@@ -101,12 +116,17 @@ public class TestJoinTables {
         .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
         .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
         .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_b")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
         .append(tableLocation.getAbsolutePath())
-        .append("'")
+        .append("')")
         .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a, source_db.table_b WHERE table_a.name = table_b.name");
-    assertEquals(3, result.size());
+    List<Object[]> result = shell.executeStatement("SELECT table_a.first_name, table_b.name, table_b.salary " +
+        "FROM source_db.table_a, source_db.table_b WHERE table_a.salary = table_b.salary");
+    assertEquals(2, result.size());
+    assertArrayEquals(new Object[]{"Ella", "Andy", 3000L}, result.get(0));
+    assertArrayEquals(new Object[]{"Ella", "Michael", 3000L}, result.get(1));
   }
 
   @Test
@@ -116,19 +136,26 @@ public class TestJoinTables {
         .append("CREATE TABLE source_db.table_a ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
         .append(tableLocation.getAbsolutePath())
-        .append("'")
+        .append("')")
         .toString());
 
     shell.execute(new StringBuilder()
         .append("CREATE TABLE source_db.table_b ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_b")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
         .append(tableLocation.getAbsolutePath())
-        .append("'")
+        .append("')")
         .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a, source_db.table_b WHERE table_a.salary = table_b.salary");
-    assertEquals(5, result.size());
+    List<Object[]> result = shell.executeStatement("SELECT table_a.first_name, table_b.name, table_b.salary " +
+        "FROM source_db.table_a, source_db.table_b WHERE table_a.salary = table_b.salary");
+    assertEquals(2, result.size());
+    assertArrayEquals(new Object[]{"Ella", "Andy", 3000L}, result.get(0));
+    assertArrayEquals(new Object[]{"Ella", "Michael", 3000L}, result.get(1));
   }
 }

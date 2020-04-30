@@ -20,7 +20,6 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
@@ -30,6 +29,7 @@ import org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
 import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
+import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
@@ -41,15 +41,16 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.Expression;
-import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static com.expediagroup.hiveberg.TableResolverUtil.pathAsURI;
+import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromJob;
 
 /**
  * CombineHiveInputFormat.AvoidSplitCombination is implemented to correctly delegate InputSplit
@@ -60,37 +61,31 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
   static final String TABLE_LOCATION = "location";
-  static final String TABLE_NAME = "name";
   static final String TABLE_FILTER_SERIALIZED = "iceberg.filter.serialized";
 
   private Table table;
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-    String tableDir = job.get(TABLE_LOCATION);
-    URI location;
-    try {
-      location = new URI(tableDir);
-    } catch (URISyntaxException e) {
-      throw new IOException("Unable to create URI for table location: '" + tableDir + "'");
-    }
-    HadoopCatalog catalog = new HadoopCatalog(job,location.getPath());
-    TableIdentifier id = TableIdentifier.parse(job.get(TABLE_NAME));
-    table = catalog.loadTable(id);
+    table = resolveTableFromJob(job);
+    URI location = pathAsURI(job.get(TABLE_LOCATION));
 
+    String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
     List<CombinedScanTask> tasks;
     if(job.get(TABLE_FILTER_SERIALIZED) == null) {
       tasks = Lists.newArrayList(table
           .newScan()
+          .select(readColumns)
           .planTasks());
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
-          deserializeObject(job.get( TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
+          deserializeObject(job.get(TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
       SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
       Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
 
       tasks = Lists.newArrayList(table
           .newScan()
+          .select(readColumns)
           .filter(filter)
           .planTasks());
     }

@@ -15,6 +15,8 @@
  */
 package com.expediagroup.hiveberg;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -28,9 +30,9 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.io.Writable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.catalog.TableIdentifier;
-import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
+
+import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromConfiguration;
 
 public class IcebergSerDe extends AbstractSerDe {
 
@@ -38,10 +40,13 @@ public class IcebergSerDe extends AbstractSerDe {
   private ObjectInspector inspector;
 
   @Override
-  public void initialize(@Nullable Configuration configuration, Properties properties) throws SerDeException {
-    HadoopCatalog catalog = new HadoopCatalog(configuration, properties.getProperty("location"));
-    TableIdentifier id = TableIdentifier.parse(properties.getProperty("name"));
-    Table table = catalog.loadTable(id);
+  public void initialize(@Nullable Configuration configuration, Properties serDeProperties) throws SerDeException {
+    Table table = null;
+    try {
+      table = resolveTableFromConfiguration(configuration, serDeProperties);
+    } catch (IOException e) {
+      throw new UncheckedIOException("Unable to resolve table from configuration: ", e);
+    }
     this.schema = table.schema();
 
     try {
@@ -57,7 +62,7 @@ public class IcebergSerDe extends AbstractSerDe {
   }
 
   @Override
-  public Writable serialize(Object o, ObjectInspector objectInspector) throws SerDeException {
+  public Writable serialize(Object o, ObjectInspector objectInspector) {
     return null;
   }
 
@@ -67,7 +72,7 @@ public class IcebergSerDe extends AbstractSerDe {
   }
 
   @Override
-  public Object deserialize(Writable writable) throws SerDeException {
+  public Object deserialize(Writable writable) {
     IcebergWritable icebergWritable = (IcebergWritable) writable;
     Schema schema = icebergWritable.getSchema();
     List<Types.NestedField> fields = schema.columns();
@@ -81,7 +86,7 @@ public class IcebergSerDe extends AbstractSerDe {
   }
 
   @Override
-  public ObjectInspector getObjectInspector() throws SerDeException {
+  public ObjectInspector getObjectInspector() {
     return inspector;
   }
 }
