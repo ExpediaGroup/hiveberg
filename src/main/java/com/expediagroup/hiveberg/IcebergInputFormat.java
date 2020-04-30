@@ -48,8 +48,7 @@ import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.expediagroup.hiveberg.Util.findTable;
-import static com.expediagroup.hiveberg.Util.getPathURI;
+import static com.expediagroup.hiveberg.TableResolverUtil.pathAsURI;
 
 /**
  * CombineHiveInputFormat.AvoidSplitCombination is implemented to correctly delegate InputSplit
@@ -66,8 +65,8 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-    table = findTable(job);
-    URI location = getPathURI(job.get(TABLE_LOCATION));
+    table = TableResolverUtil.resolveTableFromJob(job);
+    URI location = pathAsURI(job.get(TABLE_LOCATION));
 
     List<CombinedScanTask> tasks;
     if(job.get(TABLE_FILTER_SERIALIZED) == null) {

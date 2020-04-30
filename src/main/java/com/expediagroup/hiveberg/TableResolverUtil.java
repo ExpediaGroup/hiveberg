@@ -26,17 +26,17 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopTables;
 
-public class Util {
+class TableResolverUtil {
 
   static final String CATALOG_NAME = "iceberg.catalog";
   static final String TABLE_LOCATION = "location";
   static final String TABLE_NAME = "name";
   static final String WAREHOUSE_LOCATION = "iceberg.warehouse.location";
 
-  private Util() {
+  private TableResolverUtil() {
   }
 
-  public static Table findTable(JobConf conf) throws IOException {
+  public static Table resolveTableFromJob(JobConf conf) throws IOException {
     Properties properties = new Properties();
       properties.setProperty(CATALOG_NAME, extractProperty(conf, CATALOG_NAME));
       properties.setProperty(TABLE_LOCATION, extractProperty(conf, TABLE_LOCATION));
@@ -44,10 +44,10 @@ public class Util {
       if(conf.get(CATALOG_NAME).equals("hadoop.catalog")) {
         properties.setProperty(WAREHOUSE_LOCATION, extractProperty(conf, WAREHOUSE_LOCATION));
       }
-    return findTable(conf, properties);
+    return resolveTableFromConfiguration(conf, properties);
   }
 
-  static Table findTable(Configuration conf, Properties properties) throws IOException {
+  static Table resolveTableFromConfiguration(Configuration conf, Properties properties) throws IOException {
     String catalogName = properties.getProperty(CATALOG_NAME);
     if (catalogName == null) {
       throw new IllegalArgumentException("Catalog property: 'iceberg.catalog' not set in JobConf");
@@ -55,10 +55,10 @@ public class Util {
     switch (catalogName) {
       case "hadoop.tables":
         HadoopTables tables = new HadoopTables(conf);
-        URI tableLocation = getPathURI(properties.getProperty(TABLE_LOCATION));
+        URI tableLocation = pathAsURI(properties.getProperty(TABLE_LOCATION));
         return tables.load(tableLocation.getPath());
       case "hadoop.catalog":
-        URI warehouseLocation = getPathURI(properties.getProperty(WAREHOUSE_LOCATION));
+        URI warehouseLocation = pathAsURI(properties.getProperty(WAREHOUSE_LOCATION));
         HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
         TableIdentifier id = TableIdentifier.parse(properties.getProperty(TABLE_NAME));
         return catalog.loadTable(id);
@@ -69,17 +69,15 @@ public class Util {
     return null;
   }
 
-  public static URI getPathURI(String propertyPath) throws IOException {
-    if (propertyPath == null) {
-      throw new IllegalArgumentException("Path set to null in JobConf");
+  public static URI pathAsURI(String path) throws IOException {
+    if (path == null) {
+      throw new IllegalArgumentException("Path is null.");
     }
-    URI location;
     try {
-      location = new URI(propertyPath);
+      return new URI(path);
     } catch (URISyntaxException e) {
-      throw new IOException("Unable to create URI for table location: '" + propertyPath + "'", e);
+      throw new IOException("Unable to create URI for table location: '" + path + "'", e);
     }
-    return location;
   }
 
   private static String extractProperty(JobConf conf, String key) {

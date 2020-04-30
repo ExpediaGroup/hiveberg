@@ -32,7 +32,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Types;
 
-import static com.expediagroup.hiveberg.Util.findTable;
+import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromConfiguration;
 
 public class IcebergSerDe extends AbstractSerDe {
 
@@ -40,12 +40,12 @@ public class IcebergSerDe extends AbstractSerDe {
   private ObjectInspector inspector;
 
   @Override
-  public void initialize(@Nullable Configuration configuration, Properties properties) throws SerDeException {
+  public void initialize(@Nullable Configuration configuration, Properties serDeProperties) throws SerDeException {
     Table table = null;
     try {
-      table = findTable(configuration, properties);
+      table = resolveTableFromConfiguration(configuration, serDeProperties);
     } catch (IOException e) {
-      throw new UncheckedIOException("Unable to load table: ", e);
+      throw new UncheckedIOException("Unable to resolve table from configuration: ", e);
     }
     this.schema = table.schema();
 
