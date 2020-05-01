@@ -45,7 +45,9 @@ final class IcebergSchemaToTypeInfo {
       .put(Types.BinaryType.get(), TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.BINARY_TYPE_NAME))
       .put(Types.StringType.get(), TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.STRING_TYPE_NAME))
       .put(Types.DateType.get(), TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.DATE_TYPE_NAME))
-      .put(Types.TimestampType.withoutZone(), TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.TIMESTAMP_TYPE_NAME)).build();
+      .put(Types.TimestampType.withoutZone(), TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.BIGINT_TYPE_NAME))
+      .put(Types.TimestampType.withZone(), TypeInfoFactory.getPrimitiveTypeInfo(serdeConstants.BIGINT_TYPE_NAME))
+      .build();
 
   public static List<TypeInfo> getColumnTypes(Schema schema) throws Exception {
     List<Types.NestedField> fields = schema.columns();

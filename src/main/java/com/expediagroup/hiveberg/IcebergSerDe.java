@@ -48,7 +48,6 @@ public class IcebergSerDe extends AbstractSerDe {
       throw new UncheckedIOException("Unable to resolve table from configuration: ", e);
     }
     this.schema = table.schema();
-
     try {
       this.inspector = new IcebergObjectInspectorGenerator().createObjectInspector(schema);
     } catch (Exception e) {

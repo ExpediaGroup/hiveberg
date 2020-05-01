@@ -15,9 +15,11 @@
  */
 package com.expediagroup.hiveberg;
 
+import com.expediagroup.hiveberg.iterables.SnapshotIterable;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.avro.DataReader;
@@ -32,8 +34,8 @@ class IcebergReaderFactory {
   IcebergReaderFactory() {
   }
 
-  public CloseableIterable<Record> createReader(DataFile file, FileScanTask currentTask, InputFile inputFile,
-                                                Schema tableSchema, boolean reuseContainers) {
+  public Iterable<Record> createReader(DataFile file, FileScanTask currentTask, InputFile inputFile,
+                                                Schema tableSchema, boolean reuseContainers, Table table) {
     switch (file.format()) {
       case AVRO:
         return buildAvroReader(currentTask, inputFile, tableSchema, reuseContainers);
@@ -41,7 +43,8 @@ class IcebergReaderFactory {
         return buildOrcReader(currentTask, inputFile, tableSchema, reuseContainers);
       case PARQUET:
         return buildParquetReader(currentTask, inputFile, tableSchema, reuseContainers);
-
+      case METADATA:
+        return buildMetadataReader(table);
       default:
         throw new UnsupportedOperationException(
             String.format("Cannot read %s file: %s", file.format().name(), file.path()));
@@ -82,7 +85,10 @@ class IcebergReaderFactory {
     if (reuseContainers) {
       builder.reuseContainers();
     }
-
     return builder.build();
+  }
+
+  private Iterable buildMetadataReader(Table table) {
+    return new SnapshotIterable(table);
   }
 }

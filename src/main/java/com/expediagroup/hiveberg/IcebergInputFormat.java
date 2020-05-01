@@ -44,7 +44,6 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hadoop.HadoopInputFile;
-import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,7 +114,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     private IcebergSplit split;
 
     private Iterator<FileScanTask> tasks;
-    private CloseableIterable<Record> reader;
+    private Iterable<Record> reader;
     private Iterator<Record> recordIterator;
     private Record currentRecord;
 
@@ -138,7 +137,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
       boolean reuseContainers = true; // FIXME: read from config
 
       IcebergReaderFactory readerFactory = new IcebergReaderFactory();
-      reader = readerFactory.createReader(file, currentTask, inputFile, tableSchema, reuseContainers);
+      reader = readerFactory.createReader(file, currentTask, inputFile, tableSchema, reuseContainers, table);
       recordIterator = reader.iterator();
     }
 
