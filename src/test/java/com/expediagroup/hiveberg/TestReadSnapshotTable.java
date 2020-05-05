@@ -52,16 +52,17 @@ public class TestReadSnapshotTable {
   public TemporaryFolder temp = new TemporaryFolder();
 
   private File tableLocation;
+  private Configuration conf = new Configuration();
+  private HadoopCatalog catalog;;
+  private Schema schema = new Schema(required(1, "id", Types.LongType.get()),
+      optional(2, "data", Types.StringType.get()));
 
   @Before
   public void before() throws IOException {
     tableLocation = temp.newFolder();
-    Schema schema = new Schema(required(1, "id", Types.LongType.get()),
-        optional(2, "data", Types.StringType.get()));
+    catalog = new HadoopCatalog(conf, tableLocation.getAbsolutePath());
     PartitionSpec spec = PartitionSpec.unpartitioned();
 
-    Configuration conf = new Configuration();
-    HadoopCatalog catalog = new HadoopCatalog(conf, tableLocation.getAbsolutePath());
     TableIdentifier id = TableIdentifier.parse("source_db.table_a");
     Table table = catalog.createTable(id, schema, spec);
 
@@ -79,7 +80,7 @@ public class TestReadSnapshotTable {
   }
 
   @Test
-  public void testInputFormat () {
+  public void testReadSnapshotTable () {
     shell.execute("CREATE DATABASE source_db");
 
     shell.execute(new StringBuilder()
@@ -93,18 +94,45 @@ public class TestReadSnapshotTable {
         .toString());
 
     shell.execute(new StringBuilder()
-        .append("CREATE TABLE source_db.table_a_snapshots ")
+        .append("CREATE TABLE source_db.table_a__snapshots ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog','iceberg.snapshots.table'='true', " +
-            "'iceberg.table.name'='source_db.table_a', 'iceberg.warehouse.location'='")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
         .append(tableLocation.getAbsolutePath())
         .append("')")
         .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a_snapshots");
+    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a__snapshots");
 
     assertEquals(3, result.size());
   }
+
+  @Test
+  public void testCreateRegularTableEndingWithSnapshots() throws IOException {
+    TableIdentifier id = TableIdentifier.parse("source_db.table_a__snapshots");
+    Table table = catalog.createTable(id, schema, PartitionSpec.unpartitioned());
+
+    List<Record> data = new ArrayList<>();
+    data.add(TestHelpers.createSimpleRecord(1L, "Michael"));
+    DataFile fileA = TestHelpers.writeFile(temp.newFile(), table, null, FileFormat.PARQUET, data);
+    table.newAppend().appendFile(fileA).commit();
+
+    shell.execute("CREATE DATABASE source_db");
+
+    shell.execute(new StringBuilder()
+        .append("CREATE TABLE source_db.table_a__snapshots ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a__snapshots")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog','iceberg.snapshots.table'='false', 'iceberg.warehouse.location'='")
+        .append(tableLocation.getAbsolutePath())
+        .append("')")
+        .toString());
+
+    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a__snapshots");
+
+    assertEquals(1, result.size());
+  }
+
 }

@@ -97,7 +97,7 @@ public class TestInputFormatWithHadoopCatalog {
         .append("')")
         .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
+    List<Object[]> result = shell.executeStatement("SELECT id, data FROM source_db.table_a");
 
     assertEquals(3, result.size());
     assertArrayEquals(new Object[]{1L, "Michael"}, result.get(0));
@@ -121,7 +121,7 @@ public class TestInputFormatWithHadoopCatalog {
         .append("')")
         .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
+    List<Object[]> result = shell.executeStatement("SELECT id, data FROM source_db.table_a");
 
     assertEquals(3, result.size());
     assertArrayEquals(new Object[]{1L, "Michael"}, result.get(0));

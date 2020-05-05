@@ -20,6 +20,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
@@ -40,11 +41,14 @@ import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotsTable;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.io.InputFile;
+import org.apache.iceberg.types.Types;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,7 +149,11 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     public boolean next(Void key, IcebergWritable value) {
       if (recordIterator.hasNext()) {
         currentRecord = recordIterator.next();
-        value.setRecord(currentRecord);
+        if (table instanceof SnapshotsTable) {
+          value.setRecord(currentRecord);
+        } else {
+          value.setRecord(recordWithVirtualColumn(currentRecord, table.currentSnapshot().snapshotId(), table.schema(), schemaWithVirtualColumn(table.schema())));
+        }
         return true;
       }
 
@@ -167,7 +175,11 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     public IcebergWritable createValue() {
       IcebergWritable record = new IcebergWritable();
       record.setRecord(currentRecord);
-      record.setSchema(table.schema());
+      if(table instanceof SnapshotsTable) {
+        record.setSchema(table.schema());
+      } else {
+        record.setSchema(schemaWithVirtualColumn(table.schema()));
+      }
       return record;
     }
 
@@ -249,6 +261,21 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     public CombinedScanTask getTask() {
       return task;
     }
+  }
+
+  private Schema schemaWithVirtualColumn(Schema schema) {
+    List<Types.NestedField> columns = new ArrayList<>(schema.columns());
+    columns.add(Types.NestedField.optional(9999, "snapshot_id", Types.LongType.get()));
+    return new Schema(columns);
+  }
+
+  private Record recordWithVirtualColumn (Record record, long snapshotId, Schema oldSchema, Schema newSchema) {
+    Record newRecord = GenericRecord.create(newSchema);
+    for(Types.NestedField field: oldSchema.columns()) {
+      newRecord.setField(field.name(), record.getField(field.name()));
+    }
+    newRecord.setField("snapshot_id", snapshotId);
+    return newRecord;
   }
 
 }
