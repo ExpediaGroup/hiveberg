@@ -15,18 +15,21 @@
  */
 package com.expediagroup.hiveberg;
 
+import com.google.common.collect.Lists;
 import com.klarna.hiverunner.HiveShell;
 import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.Record;
@@ -56,6 +59,7 @@ public class TestReadSnapshotTable {
   private HadoopCatalog catalog;;
   private Schema schema = new Schema(required(1, "id", Types.LongType.get()),
       optional(2, "data", Types.StringType.get()));
+  private long snapshotId;
 
   @Before
   public void before() throws IOException {
@@ -77,6 +81,9 @@ public class TestReadSnapshotTable {
     table.newAppend().appendFile(fileA).commit();
     table.newAppend().appendFile(fileB).commit();
     table.newAppend().appendFile(fileC).commit();
+
+    List<Snapshot> snapshots = Lists.newArrayList(table.snapshots().iterator());
+    snapshotId = snapshots.get(0).snapshotId();
   }
 
   @Test
@@ -133,6 +140,60 @@ public class TestReadSnapshotTable {
     List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a__snapshots");
 
     assertEquals(1, result.size());
+  }
+
+  @Test
+  public void testTimeTravelRead () {
+    shell.execute("CREATE DATABASE source_db");
+
+    shell.execute(new StringBuilder()
+        .append("CREATE TABLE source_db.table_a ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
+        .append(tableLocation.getAbsolutePath())
+        .append("')")
+        .toString());
+
+    shell.execute(new StringBuilder()
+        .append("CREATE TABLE source_db.table_a__snapshots ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
+        .append(tableLocation.getAbsolutePath())
+        .append("')")
+        .toString());
+
+    List<Object[]> resultLatestTable = shell.executeStatement("SELECT * FROM source_db.table_a");
+    assertEquals(9, resultLatestTable.size());
+
+    List<Object[]> resultFirstSnapshot = shell.executeStatement("SELECT * FROM source_db.table_a WHERE snapshot_id = " + snapshotId);
+    assertEquals(3, resultFirstSnapshot.size());
+
+    List<Object[]> resultLatestSnapshotAgain = shell.executeStatement("SELECT * FROM source_db.table_a");
+    assertEquals(9, resultLatestSnapshotAgain.size());
+  }
+
+  @Test
+  public void testSnapshotFunc() throws IOException {
+    TableIdentifier id = TableIdentifier.parse("source_db.table_a__snapshots");
+    Table table = catalog.createTable(id, schema, PartitionSpec.unpartitioned());
+
+    List<Record> data = new ArrayList<>();
+    data.add(TestHelpers.createSimpleRecord(1L, "Michael"));
+    DataFile fileA = TestHelpers.writeFile(temp.newFile(), table, null, FileFormat.PARQUET, data);
+    table.newAppend().appendFile(fileA).commit();
+    table.newAppend().appendFile(fileA).commit();
+    table.newAppend().appendFile(fileA).commit();
+
+    long mostRecentId = table.currentSnapshot().snapshotId();
+    List<Snapshot> snapshots = Lists.newArrayList(table.snapshots());
+    long oldestId = snapshots.get(0).snapshotId();
+
+    table.manageSnapshots().rollbackTo(oldestId).commit();
+    table.refresh();
   }
 
 }

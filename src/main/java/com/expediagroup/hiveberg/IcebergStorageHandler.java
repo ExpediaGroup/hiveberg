@@ -15,22 +15,30 @@
  */
 package com.expediagroup.hiveberg;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.metastore.HiveMetaHook;
 import org.apache.hadoop.hive.ql.exec.SerializationUtilities;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
+import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
+import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
+import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.hadoop.hive.ql.metadata.DefaultStorageHandler;
+import org.apache.hadoop.hive.ql.metadata.HiveException;
+import org.apache.hadoop.hive.ql.metadata.HiveStorageHandler;
 import org.apache.hadoop.hive.ql.metadata.HiveStoragePredicateHandler;
 import org.apache.hadoop.hive.ql.plan.ExprNodeDesc;
 import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
 import org.apache.hadoop.hive.ql.plan.TableDesc;
+import org.apache.hadoop.hive.ql.security.authorization.HiveAuthorizationProvider;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.OutputFormat;
 
-public class IcebergStorageHandler extends DefaultStorageHandler implements HiveStoragePredicateHandler {
+public class IcebergStorageHandler implements HiveStoragePredicateHandler, HiveStorageHandler {
 
   private Configuration conf;
 
@@ -50,23 +58,33 @@ public class IcebergStorageHandler extends DefaultStorageHandler implements Hive
   }
 
   @Override
-  public void configureInputJobProperties(TableDesc tableDesc, Map<String, String> jobProperties) {
-    super.configureInputJobProperties(tableDesc, jobProperties);
+  public HiveMetaHook getMetaHook() {
+    return null;
   }
 
   @Override
-  public void configureOutputJobProperties(TableDesc tableDesc, Map<String, String> jobProperties) {
-    super.configureOutputJobProperties(tableDesc, jobProperties);
+  public HiveAuthorizationProvider getAuthorizationProvider() throws HiveException {
+    return null;
   }
 
   @Override
-  public void configureTableJobProperties(TableDesc tableDesc, Map<String, String> jobProperties) {
-    super.configureTableJobProperties(tableDesc, jobProperties);
+  public void configureInputJobProperties(TableDesc tableDesc, Map<String, String> map) {
+
+  }
+
+  @Override
+  public void configureOutputJobProperties(TableDesc tableDesc, Map<String, String> map) {
+
+  }
+
+  @Override
+  public void configureTableJobProperties(TableDesc tableDesc, Map<String, String> map) {
+
   }
 
   @Override
   public void configureJobConf(TableDesc tableDesc, JobConf jobConf) {
-    super.configureJobConf(tableDesc, jobConf);
+
   }
 
   @Override
@@ -93,11 +111,10 @@ public class IcebergStorageHandler extends DefaultStorageHandler implements Hive
    */
   @Override
   public DecomposedPredicate decomposePredicate(JobConf jobConf, Deserializer deserializer, ExprNodeDesc exprNodeDesc) {
-    getConf().set("iceberg.filter.serialized", SerializationUtilities.serializeObject(exprNodeDesc));
-
     //TODO: Decide what Iceberg can handle and what to return to Hive
     DecomposedPredicate predicate = new DecomposedPredicate();
     predicate.residualPredicate = (ExprNodeGenericFuncDesc) exprNodeDesc;
+    predicate.pushedPredicate = (ExprNodeGenericFuncDesc) exprNodeDesc;
     return predicate;
   }
 }

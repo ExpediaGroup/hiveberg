@@ -28,6 +28,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.SerializationUtilities;
 import org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
 import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
+import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
@@ -64,7 +65,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
   static final String TABLE_LOCATION = "location";
-  static final String TABLE_FILTER_SERIALIZED = "iceberg.filter.serialized";
+  static final String TABLE_FILTER_SERIALIZED = "hive.io.filter.expr.serialized";
 
   private Table table;
 
@@ -75,7 +76,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
 
     String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
     List<CombinedScanTask> tasks;
-    if(job.get(TABLE_FILTER_SERIALIZED) == null) {
+    if(job.get(TABLE_FILTER_SERIALIZED) == null || job.get(TABLE_FILTER_SERIALIZED).equals("")) {
       tasks = Lists.newArrayList(table
           .newScan()
           .select(readColumns)
@@ -83,14 +84,22 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
           deserializeObject(job.get(TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
+      job.set(TABLE_FILTER_SERIALIZED, ""); //Reset for next query
       SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
       Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
+
+      long originalSnapshotId = table.currentSnapshot().snapshotId();
+      long snapshotIdFromFilter = extractSnapshotID(job, exprNodeDesc);
+      if(snapshotIdFromFilter != 0L) {
+        table.manageSnapshots().rollbackTo(snapshotIdFromFilter).commit();
+      }
 
       tasks = Lists.newArrayList(table
           .newScan()
           .select(readColumns)
           .filter(filter)
           .planTasks());
+      table.manageSnapshots().setCurrentSnapshot(originalSnapshotId).commit();
     }
     return createSplits(tasks, location.toString());
   }
@@ -276,6 +285,17 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     }
     newRecord.setField("snapshot_id", snapshotId);
     return newRecord;
+  }
+
+  private long extractSnapshotID(Configuration conf, ExprNodeGenericFuncDesc exprNodeDesc) {
+    SearchArgument sarg = ConvertAstToSearchArg.create(conf, exprNodeDesc);
+    List<PredicateLeaf> leaves = sarg.getLeaves();
+    for(PredicateLeaf leaf : leaves) {
+      if(leaf.getColumnName().equals("snapshot_id")) {
+        return (long) leaf.getLiteral();
+      }
+    }
+    return 0L;
   }
 
 }
