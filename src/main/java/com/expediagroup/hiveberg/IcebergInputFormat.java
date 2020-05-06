@@ -61,7 +61,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
   static final String TABLE_LOCATION = "location";
-  static final String TABLE_FILTER_SERIALIZED = "iceberg.filter.serialized";
+  static final String TABLE_FILTER_SERIALIZED = "hive.io.filter.expr.serialized";
 
   private Table table;
 

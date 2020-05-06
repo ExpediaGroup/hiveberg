@@ -17,7 +17,6 @@ package com.expediagroup.hiveberg;
 
 import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.ql.exec.SerializationUtilities;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.metadata.DefaultStorageHandler;
 import org.apache.hadoop.hive.ql.metadata.HiveStoragePredicateHandler;
@@ -84,20 +83,18 @@ public class IcebergStorageHandler extends DefaultStorageHandler implements Hive
   }
 
   /**
-   * Extract and serialize the filter expression and add it to the Configuration for the InputFormat to access.
    * @param jobConf Job configuration for InputFormat to access
    * @param deserializer Deserializer
    * @param exprNodeDesc Filter expression extracted by Hive
    * @return DecomposedPredicate that tells Hive what parts of the predicate are handled by the StorageHandler
-   * and what parts Hive needs to handle.
+   * and what parts Hive needs to handle. pushedPredicate gets serialized for access in the InputFormat.
    */
   @Override
   public DecomposedPredicate decomposePredicate(JobConf jobConf, Deserializer deserializer, ExprNodeDesc exprNodeDesc) {
-    getConf().set("iceberg.filter.serialized", SerializationUtilities.serializeObject(exprNodeDesc));
-
     //TODO: Decide what Iceberg can handle and what to return to Hive
     DecomposedPredicate predicate = new DecomposedPredicate();
     predicate.residualPredicate = (ExprNodeGenericFuncDesc) exprNodeDesc;
+    predicate.pushedPredicate = (ExprNodeGenericFuncDesc) exprNodeDesc;
     return predicate;
   }
 }
