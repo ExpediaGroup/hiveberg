@@ -68,6 +68,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
   static final String TABLE_FILTER_SERIALIZED = "hive.io.filter.expr.serialized";
 
   private Table table;
+  private long currentSnapshotId;
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
@@ -84,22 +85,17 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
           deserializeObject(job.get(TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
-      job.set(TABLE_FILTER_SERIALIZED, ""); //Reset for next query
       SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
       Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
 
-      long originalSnapshotId = table.currentSnapshot().snapshotId();
-      long snapshotIdFromFilter = extractSnapshotID(job, exprNodeDesc);
-      if(snapshotIdFromFilter != 0L) {
-        table.manageSnapshots().rollbackTo(snapshotIdFromFilter).commit();
-      }
+      long snapshotIdToScan = extractSnapshotID(job, exprNodeDesc);
 
       tasks = Lists.newArrayList(table
           .newScan()
+          .useSnapshot(snapshotIdToScan)
           .select(readColumns)
           .filter(filter)
           .planTasks());
-      table.manageSnapshots().setCurrentSnapshot(originalSnapshotId).commit();
     }
     return createSplits(tasks, location.toString());
   }
@@ -161,7 +157,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
         if (table instanceof SnapshotsTable) {
           value.setRecord(currentRecord);
         } else {
-          value.setRecord(recordWithVirtualColumn(currentRecord, table.currentSnapshot().snapshotId(), table.schema(), schemaWithVirtualColumn(table.schema())));
+          value.setRecord(recordWithVirtualColumn(currentRecord, currentSnapshotId, table.schema()));
         }
         return true;
       }
@@ -274,11 +270,12 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
 
   private Schema schemaWithVirtualColumn(Schema schema) {
     List<Types.NestedField> columns = new ArrayList<>(schema.columns());
-    columns.add(Types.NestedField.optional(9999, "snapshot_id", Types.LongType.get()));
+    columns.add(Types.NestedField.optional(Integer.MAX_VALUE, "snapshot_id", Types.LongType.get()));
     return new Schema(columns);
   }
 
-  private Record recordWithVirtualColumn (Record record, long snapshotId, Schema oldSchema, Schema newSchema) {
+  private Record recordWithVirtualColumn (Record record, long snapshotId, Schema oldSchema) {
+    Schema newSchema = schemaWithVirtualColumn(oldSchema);
     Record newRecord = GenericRecord.create(newSchema);
     for(Types.NestedField field: oldSchema.columns()) {
       newRecord.setField(field.name(), record.getField(field.name()));
@@ -287,15 +284,21 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     return newRecord;
   }
 
+  /**
+   * Search all the leaves of the expression for the 'snapshot_id' column and extract value.
+   * If snapshot_id column not found, return current table snapshot ID.
+   */
   private long extractSnapshotID(Configuration conf, ExprNodeGenericFuncDesc exprNodeDesc) {
     SearchArgument sarg = ConvertAstToSearchArg.create(conf, exprNodeDesc);
     List<PredicateLeaf> leaves = sarg.getLeaves();
     for(PredicateLeaf leaf : leaves) {
       if(leaf.getColumnName().equals("snapshot_id")) {
+        currentSnapshotId = (long) leaf.getLiteral();
         return (long) leaf.getLiteral();
       }
     }
-    return 0L;
+    currentSnapshotId = table.currentSnapshot().snapshotId();
+    return table.currentSnapshot().snapshotId();
   }
 
 }
