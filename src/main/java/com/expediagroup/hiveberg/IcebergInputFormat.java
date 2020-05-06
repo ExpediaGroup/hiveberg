@@ -60,8 +60,11 @@ import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromJob;
 public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.AvoidSplitCombination {
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
-  static final String TABLE_LOCATION = "location";
+  /**
+   * @see org.apache.hadoop.hive.ql.plan.TableScanDesc#FILTER_EXPR_CONF_STR
+   */
   static final String TABLE_FILTER_SERIALIZED = "hive.io.filter.expr.serialized";
+  static final String TABLE_LOCATION = "location";
 
   private Table table;
 
