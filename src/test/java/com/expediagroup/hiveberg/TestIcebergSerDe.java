@@ -89,7 +89,7 @@ public class TestIcebergSerDe {
     reader.next(null, value);
 
     IcebergSerDe serde = new IcebergSerDe();
-    List<?> deserialized = (List<?>) serde.deserialize(value);
+    List<Object> deserialized = (List<Object>) serde.deserialize(value);
 
     assertEquals("Michael", deserialized.get(0));
     assertEquals(3000L, deserialized.get(1));
@@ -109,7 +109,7 @@ public class TestIcebergSerDe {
     writable.setSchema(schema);
 
     IcebergSerDe serDe = new IcebergSerDe();
-    List<?> deserialized = (List<?>) serDe.deserialize(writable);
+    List<Object> deserialized = (List<Object>) serDe.deserialize(writable);
     Map result = (Map) deserialized.get(0);
 
     assertEquals(expected, result);
@@ -130,7 +130,7 @@ public class TestIcebergSerDe {
     writable.setSchema(schema);
 
     IcebergSerDe serDe = new IcebergSerDe();
-    List<?> deserialized = (List<?>) serDe.deserialize(writable);
+    List<Object> deserialized = (List<Object>) serDe.deserialize(writable);
     List result = (List) deserialized.get(0);
 
     assertEquals(expected, result);
@@ -154,7 +154,7 @@ public class TestIcebergSerDe {
     writable.setSchema(schema);
 
     IcebergSerDe serDe = new IcebergSerDe();
-    List<?> result = (List<?>) serDe.deserialize(writable);
+    List<Object> result = (List<Object>) serDe.deserialize(writable);
 
     assertEquals(expected, result);
   }
@@ -173,7 +173,7 @@ public class TestIcebergSerDe {
     writable.setSchema(schema);
 
     IcebergSerDe serDe = new IcebergSerDe();
-    List<?> deserialized = (List<?>) serDe.deserialize(writable);
+    List<Object> deserialized = (List<Object>) serDe.deserialize(writable);
     Map result = (Map) deserialized.get(0);
 
     assertEquals(expected, result);
