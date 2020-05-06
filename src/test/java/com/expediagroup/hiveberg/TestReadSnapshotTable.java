@@ -174,25 +174,4 @@ public class TestReadSnapshotTable {
     List<Object[]> resultLatestSnapshotAgain = shell.executeStatement("SELECT * FROM source_db.table_a");
     assertEquals(9, resultLatestSnapshotAgain.size());
   }
-
-  @Test
-  public void testSnapshotFunc() throws IOException {
-    TableIdentifier id = TableIdentifier.parse("source_db.table_a__snapshots");
-    Table table = catalog.createTable(id, schema, PartitionSpec.unpartitioned());
-
-    List<Record> data = new ArrayList<>();
-    data.add(TestHelpers.createSimpleRecord(1L, "Michael"));
-    DataFile fileA = TestHelpers.writeFile(temp.newFile(), table, null, FileFormat.PARQUET, data);
-    table.newAppend().appendFile(fileA).commit();
-    table.newAppend().appendFile(fileA).commit();
-    table.newAppend().appendFile(fileA).commit();
-
-    long mostRecentId = table.currentSnapshot().snapshotId();
-    List<Snapshot> snapshots = Lists.newArrayList(table.snapshots());
-    long oldestId = snapshots.get(0).snapshotId();
-
-    table.manageSnapshots().rollbackTo(oldestId).commit();
-    table.refresh();
-  }
-
 }
