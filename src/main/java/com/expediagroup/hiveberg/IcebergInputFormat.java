@@ -20,7 +20,6 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
@@ -44,15 +43,16 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SnapshotsTable;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.io.InputFile;
-import org.apache.iceberg.types.Types;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.expediagroup.hiveberg.SystemTableUtil.getVirtualColumnName;
+import static com.expediagroup.hiveberg.SystemTableUtil.recordWithVirtualColumn;
+import static com.expediagroup.hiveberg.SystemTableUtil.schemaWithVirtualColumn;
 import static com.expediagroup.hiveberg.TableResolverUtil.pathAsURI;
 import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromJob;
 
@@ -69,11 +69,16 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
 
   private Table table;
   private long currentSnapshotId;
+  private String virtualSnapshotIdColumnName;
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
     table = resolveTableFromJob(job);
     URI location = pathAsURI(job.get(TABLE_LOCATION));
+
+    //Set defaults for virtual column
+    currentSnapshotId = table.currentSnapshot().snapshotId();
+    virtualSnapshotIdColumnName = getVirtualColumnName(job);
 
     String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
     List<CombinedScanTask> tasks;
@@ -157,7 +162,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
         if (table instanceof SnapshotsTable) {
           value.setRecord(currentRecord);
         } else {
-          value.setRecord(recordWithVirtualColumn(currentRecord, currentSnapshotId, table.schema()));
+          value.setRecord(recordWithVirtualColumn(currentRecord, currentSnapshotId, table.schema(), virtualSnapshotIdColumnName));
         }
         return true;
       }
@@ -183,7 +188,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
       if(table instanceof SnapshotsTable) {
         record.setSchema(table.schema());
       } else {
-        record.setSchema(schemaWithVirtualColumn(table.schema()));
+        record.setSchema(schemaWithVirtualColumn(table.schema(), virtualSnapshotIdColumnName));
       }
       return record;
     }
@@ -268,22 +273,6 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     }
   }
 
-  private Schema schemaWithVirtualColumn(Schema schema) {
-    List<Types.NestedField> columns = new ArrayList<>(schema.columns());
-    columns.add(Types.NestedField.optional(Integer.MAX_VALUE, "snapshot_id", Types.LongType.get()));
-    return new Schema(columns);
-  }
-
-  private Record recordWithVirtualColumn (Record record, long snapshotId, Schema oldSchema) {
-    Schema newSchema = schemaWithVirtualColumn(oldSchema);
-    Record newRecord = GenericRecord.create(newSchema);
-    for(Types.NestedField field: oldSchema.columns()) {
-      newRecord.setField(field.name(), record.getField(field.name()));
-    }
-    newRecord.setField("snapshot_id", snapshotId);
-    return newRecord;
-  }
-
   /**
    * Search all the leaves of the expression for the 'snapshot_id' column and extract value.
    * If snapshot_id column not found, return current table snapshot ID.
@@ -292,7 +281,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     SearchArgument sarg = ConvertAstToSearchArg.create(conf, exprNodeDesc);
     List<PredicateLeaf> leaves = sarg.getLeaves();
     for(PredicateLeaf leaf : leaves) {
-      if(leaf.getColumnName().equals("snapshot_id")) {
+      if(leaf.getColumnName().equals(virtualSnapshotIdColumnName)) {
         currentSnapshotId = (long) leaf.getLiteral();
         return (long) leaf.getLiteral();
       }

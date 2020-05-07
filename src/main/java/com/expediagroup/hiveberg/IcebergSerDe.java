@@ -33,6 +33,7 @@ import org.apache.iceberg.SnapshotsTable;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Types;
 
+import static com.expediagroup.hiveberg.SystemTableUtil.getVirtualColumnName;
 import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromConfiguration;
 
 public class IcebergSerDe extends AbstractSerDe {
@@ -57,7 +58,7 @@ public class IcebergSerDe extends AbstractSerDe {
       }
     } else {
       List<Types.NestedField> columns = new ArrayList<>(schema.columns());
-      columns.add(Types.NestedField.optional(9999, "snapshot_id", Types.LongType.get()));
+      columns.add(Types.NestedField.optional(Integer.MAX_VALUE, getVirtualColumnName(serDeProperties), Types.LongType.get()));
       Schema withVirtualColumn = new Schema(columns);
 
       try {

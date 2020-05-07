@@ -43,7 +43,7 @@ final class TableResolverUtil {
 
   static Table resolveTableFromJob(JobConf conf) throws IOException {
     Properties properties = new Properties();
-      properties.setProperty(CATALOG_NAME, extractProperty(conf, CATALOG_NAME));
+    properties.setProperty(CATALOG_NAME, extractProperty(conf, CATALOG_NAME));
     if(conf.get(CATALOG_NAME).equals(HADOOP_CATALOG)) {
       properties.setProperty(WAREHOUSE_LOCATION, extractProperty(conf, WAREHOUSE_LOCATION));
       properties.setProperty(SNAPSHOT_TABLE, conf.get(SNAPSHOT_TABLE, "true"));

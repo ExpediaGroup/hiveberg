@@ -131,7 +131,7 @@ public class IcebergFilterFactory {
    */
   private static Expression translateLeaf(PredicateLeaf leaf) {
     String column = leaf.getColumnName();
-    if(column.equals("snapshot_id")) {
+    if(column.equals("snapshot__id")) {
       return Expressions.alwaysTrue();
     }
     switch (leaf.getOperator()){

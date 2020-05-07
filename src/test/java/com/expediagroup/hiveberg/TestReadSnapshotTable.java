@@ -168,10 +168,39 @@ public class TestReadSnapshotTable {
     List<Object[]> resultLatestTable = shell.executeStatement("SELECT * FROM source_db.table_a");
     assertEquals(9, resultLatestTable.size());
 
-    List<Object[]> resultFirstSnapshot = shell.executeStatement("SELECT * FROM source_db.table_a WHERE snapshot_id = " + snapshotId);
+    List<Object[]> resultFirstSnapshot = shell.executeStatement("SELECT * FROM source_db.table_a WHERE SNAPSHOT__ID = " + snapshotId);
     assertEquals(3, resultFirstSnapshot.size());
 
     List<Object[]> resultLatestSnapshotAgain = shell.executeStatement("SELECT * FROM source_db.table_a");
     assertEquals(9, resultLatestSnapshotAgain.size());
+  }
+
+  @Test
+  public void testCreateTableWithSnapshotIDColumnInSchema() throws IOException {
+    PartitionSpec spec = PartitionSpec.unpartitioned();
+    Schema schema = new Schema(required(1, "snapshot__id", Types.LongType.get()),
+        optional(2, "data", Types.StringType.get()));
+    TableIdentifier id = TableIdentifier.parse("source_db.table_b");
+    Table table = catalog.createTable(id, schema, spec);
+
+    List<Record> data = new ArrayList<>();
+    data.add(TestHelpers.createSimpleRecord(1L, "Michael"));
+    DataFile fileA = TestHelpers.writeFile(temp.newFile(), table, null, FileFormat.PARQUET, data);
+    table.newAppend().appendFile(fileA).commit();
+
+    shell.execute("CREATE DATABASE source_db");
+
+    shell.execute(new StringBuilder()
+        .append("CREATE TABLE source_db.table_b ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'hiveberg.snapshot.virtual.column.name' = 'metadata_snapshot_id', 'iceberg.warehouse.location'='")
+        .append(tableLocation.getAbsolutePath())
+        .append("')")
+        .toString());
+
+    List<Object[]> resultLatestTable = shell.executeStatement("SELECT * FROM source_db.table_b");
+    assertEquals(1, resultLatestTable.size());
   }
 }
