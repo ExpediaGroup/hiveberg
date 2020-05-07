@@ -1,31 +1,28 @@
+/**
+ * Copyright (C) 2020 Expedia, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.expediagroup.hiveberg;
 
-import com.google.common.collect.Lists;
 import com.klarna.hiverunner.HiveShell;
 import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.ql.exec.SerializationUtilities;
-import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
-import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
-import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
-import org.apache.hadoop.hive.ql.metadata.DefaultStorageHandler;
-import org.apache.hadoop.hive.ql.metadata.HiveStoragePredicateHandler;
-import org.apache.hadoop.hive.ql.plan.ExprNodeDesc;
-import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
-import org.apache.hadoop.hive.serde2.AbstractSerDe;
-import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
-import org.apache.hadoop.hive.serde2.Deserializer;
-import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hadoop.mapred.InputSplit;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.OutputFormat;
-import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
@@ -33,7 +30,6 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.Record;
-import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.types.Types;
 import org.junit.Before;
@@ -42,8 +38,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
-import static com.expediagroup.hiveberg.TableResolverUtil.pathAsURI;
-import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromJob;
 import static org.apache.iceberg.types.Types.NestedField.optional;
 import static org.apache.iceberg.types.Types.NestedField.required;
 import static org.junit.Assert.assertEquals;
@@ -74,11 +68,11 @@ public class TestPredicatePushdown {
   }
 
   /**
-   * This test is to recreate an old bug found in the StorageHandler where the filter property wasn't
-   * getting reset between queries.
+   * This test is supposed to check that filter properties set in IcebergStorageHandler#decomposePredicate
+   * are unset for the next query so that a wrong filter isn't applied to the next read.
    */
   @Test
-  public void oldVersionOfStorageHandler() throws IOException {
+  public void testFilterPropertyIsUnsetAfterQuery() throws IOException {
     List<Record> dataA = new ArrayList<>();
     dataA.add(TestHelpers.createSimpleRecord(1L, "Michael"));
 
@@ -99,7 +93,7 @@ public class TestPredicatePushdown {
     shell.execute("CREATE DATABASE source_db");
     shell.execute(new StringBuilder()
         .append("CREATE TABLE source_db.table_a ")
-        .append("STORED BY 'com.expediagroup.hiveberg.TestPredicatePushdown$OldIcebergStorageHandler' ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
         .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
@@ -114,62 +108,6 @@ public class TestPredicatePushdown {
     assertEquals(1, resultFilterId.size());
 
     List<Object[]> resultFullTableAfterQuery = shell.executeStatement("SELECT * FROM source_db.table_a");
-    //Will only return 1 row because filter from last query is still set in Conf
-    assertEquals(1, resultFullTableAfterQuery.size());
-  }
-
-  private static class OldIcebergStorageHandler extends DefaultStorageHandler implements HiveStoragePredicateHandler {
-
-    private Configuration conf;
-
-    @Override
-    public Class<? extends InputFormat> getInputFormatClass() {
-      return OldIcebergInputFormat.class;
-    }
-
-    @Override
-    public Class<? extends AbstractSerDe> getSerDeClass() {
-      return IcebergSerDe.class;
-    }
-
-    @Override
-    public DecomposedPredicate decomposePredicate(JobConf jobConf, Deserializer deserializer, ExprNodeDesc exprNodeDesc) {
-      getConf().set("iceberg.filter.serialized", SerializationUtilities.serializeObject(exprNodeDesc));
-
-      DecomposedPredicate predicate = new DecomposedPredicate();
-      predicate.residualPredicate = (ExprNodeGenericFuncDesc) exprNodeDesc;
-      return predicate;
-    }
-  }
-
-  private static class OldIcebergInputFormat extends IcebergInputFormat {
-
-    @Override
-    public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
-      String TABLE_FILTER_SERIALIZED = "iceberg.filter.serialized";
-      table = resolveTableFromJob(job);
-      URI location = pathAsURI(job.get(TABLE_LOCATION));
-
-      String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
-      List<CombinedScanTask> tasks;
-      if(job.get(TABLE_FILTER_SERIALIZED) == null) {
-        tasks = Lists.newArrayList(table
-            .newScan()
-            .select(readColumns)
-            .planTasks());
-      } else {
-        ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
-            deserializeObject(job.get(TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
-        SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
-        Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
-
-        tasks = Lists.newArrayList(table
-            .newScan()
-            .select(readColumns)
-            .filter(filter)
-            .planTasks());
-      }
-      return createSplits(tasks, location.toString());
-    }
+    assertEquals(3, resultFullTableAfterQuery.size());
   }
 }
