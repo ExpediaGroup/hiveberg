@@ -82,7 +82,12 @@ committed_at | snapshot_id | parent_id | operation | manifest_list | summary
 
 Time travel is available when using the `IcebergStorageHandler`. 
 
-Execute a Hive query similar to: 
+The default column name to query for time travel is `snapshot__id`. If your table schema has a column with the same name as this, you can configure Hiveberg to use a different column name for the virtual column using: 
+
+`'hiveberg.snapshot.virtual.column.name' = 'new_column_name'`
+
+
+To query an older snapshot, execute a Hive query similar to: 
 ```sql
 SELECT * FROM table_a WHERE snapshot__id = 1234567890 
 ```
