@@ -66,7 +66,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
   static final String TABLE_FILTER_SERIALIZED = "hive.io.filter.expr.serialized";
   static final String TABLE_LOCATION = "location";
 
-  private Table table;
+  protected Table table;
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
@@ -95,7 +95,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     return createSplits(tasks, location.toString());
   }
 
-  private InputSplit[] createSplits(List<CombinedScanTask> tasks, String name) {
+  protected InputSplit[] createSplits(List<CombinedScanTask> tasks, String name) {
     InputSplit[] splits = new InputSplit[tasks.size()];
     for (int i = 0; i < tasks.size(); i++) {
       splits[i] = new IcebergSplit(tasks.get(i), name);
