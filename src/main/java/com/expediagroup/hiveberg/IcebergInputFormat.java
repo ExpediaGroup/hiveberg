@@ -63,7 +63,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
 
   static final String TABLE_LOCATION = "location";
 
-  protected Table table;
+  private Table table;
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
@@ -92,7 +92,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     return createSplits(tasks, location.toString());
   }
 
-  protected InputSplit[] createSplits(List<CombinedScanTask> tasks, String name) {
+  private InputSplit[] createSplits(List<CombinedScanTask> tasks, String name) {
     InputSplit[] splits = new InputSplit[tasks.size()];
     for (int i = 0; i < tasks.size(); i++) {
       splits[i] = new IcebergSplit(tasks.get(i), name);
