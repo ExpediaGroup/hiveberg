@@ -96,12 +96,11 @@ public class IcebergStorageHandler implements HiveStoragePredicateHandler, HiveS
   }
 
   /**
-   * Extract and serialize the filter expression and add it to the Configuration for the InputFormat to access.
    * @param jobConf Job configuration for InputFormat to access
    * @param deserializer Deserializer
    * @param exprNodeDesc Filter expression extracted by Hive
    * @return DecomposedPredicate that tells Hive what parts of the predicate are handled by the StorageHandler
-   * and what parts Hive needs to handle.
+   * and what parts Hive needs to handle. pushedPredicate gets serialized for access in the InputFormat.
    */
   @Override
   public DecomposedPredicate decomposePredicate(JobConf jobConf, Deserializer deserializer, ExprNodeDesc exprNodeDesc) {

@@ -30,6 +30,7 @@ import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
 import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
+import org.apache.hadoop.hive.ql.plan.TableScanDesc;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
@@ -65,7 +66,6 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
   private static final Logger LOG = LoggerFactory.getLogger(IcebergInputFormat.class);
 
   static final String TABLE_LOCATION = "location";
-  static final String TABLE_FILTER_SERIALIZED = "hive.io.filter.expr.serialized";
 
   private Table table;
   private long currentSnapshotId;
@@ -82,14 +82,14 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
 
     String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
     List<CombinedScanTask> tasks;
-    if(job.get(TABLE_FILTER_SERIALIZED) == null || job.get(TABLE_FILTER_SERIALIZED).equals("")) {
+    if(job.get(TableScanDesc.FILTER_EXPR_CONF_STR) == null) {
       tasks = Lists.newArrayList(table
           .newScan()
           .select(readColumns)
           .planTasks());
     } else {
       ExprNodeGenericFuncDesc exprNodeDesc = SerializationUtilities.
-          deserializeObject(job.get(TABLE_FILTER_SERIALIZED), ExprNodeGenericFuncDesc.class);
+          deserializeObject(job.get(TableScanDesc.FILTER_EXPR_CONF_STR), ExprNodeGenericFuncDesc.class);
       SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
       Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
 
