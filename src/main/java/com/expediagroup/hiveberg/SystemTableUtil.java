@@ -26,7 +26,7 @@ import org.apache.iceberg.types.Types;
 
 public class SystemTableUtil {
 
-  static final String VIRTUAL_COLUMN_NAME = "hiveberg.snapshot.virtual.column.name";
+  static final String VIRTUAL_COLUMN_NAME = "iceberg.hive.snapshot.virtual.column.name";
 
   private static final String DEFAULT_SNAPSHOT_ID_COLUMN_NAME = "snapshot__id";
 

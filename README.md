@@ -87,7 +87,7 @@ Time travel is only available when using the `IcebergStorageHandler`.
 Specific snapshots can be selected from your Iceberg table using a provided virtual column that exposes the snapshot id. The default name for this column is `snapshot__id`. However, if you wish to change the name of the snapshot column, you can modify the name by setting a table property like so: 
 
 ```sql
-TBLPROPERTIES ('hiveberg.snapshot.virtual.column.name' = 'new_column_name')
+TBLPROPERTIES ('iceberg.hive.snapshot.virtual.column.name' = 'new_column_name')
 ```
 
 To achieve time travel, and query an older snapshot, you can execute a Hive query similar to: 

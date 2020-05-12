@@ -195,7 +195,7 @@ public class TestReadSnapshotTable {
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'hiveberg.snapshot.virtual.column.name' = 'metadata_snapshot_id', 'iceberg.warehouse.location'='")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.hive.snapshot.virtual.column.name' = 'metadata_snapshot_id', 'iceberg.warehouse.location'='")
         .append(tableLocation.getAbsolutePath())
         .append("')")
         .toString());
