@@ -28,7 +28,7 @@ public class SystemTableUtil {
 
   static final String VIRTUAL_COLUMN_NAME = "hiveberg.snapshot.virtual.column.name";
 
-  private static String defaultSnapshotIdColumnName = "snapshot__id";
+  private static final String DEFAULT_SNAPSHOT_ID_COLUMN_NAME = "snapshot__id";
 
   private SystemTableUtil() {}
 
@@ -51,7 +51,7 @@ public class SystemTableUtil {
   protected static String getVirtualColumnName(Configuration conf) {
     String virtualColumnName = conf.get(VIRTUAL_COLUMN_NAME);
     if(virtualColumnName == null) {
-      return defaultSnapshotIdColumnName;
+      return DEFAULT_SNAPSHOT_ID_COLUMN_NAME;
     } else {
       return virtualColumnName;
     }
@@ -60,7 +60,7 @@ public class SystemTableUtil {
   protected static String getVirtualColumnName(Properties properties) {
     String virtualColumnName = properties.getProperty(VIRTUAL_COLUMN_NAME);
     if(virtualColumnName == null) {
-      return defaultSnapshotIdColumnName;
+      return DEFAULT_SNAPSHOT_ID_COLUMN_NAME;
     } else {
       return virtualColumnName;
     }

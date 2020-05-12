@@ -76,7 +76,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     table = resolveTableFromJob(job);
     URI location = pathAsURI(job.get(TABLE_LOCATION));
 
-    //Set defaults for virtual column
+    // Set defaults for virtual column
     currentSnapshotId = table.currentSnapshot().snapshotId();
     virtualSnapshotIdColumnName = getVirtualColumnName(job);
 
