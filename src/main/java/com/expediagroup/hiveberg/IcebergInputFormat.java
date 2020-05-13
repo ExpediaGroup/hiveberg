@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.exec.SerializationUtilities;
 import org.apache.hadoop.hive.ql.io.CombineHiveInputFormat;
 import org.apache.hadoop.hive.ql.io.sarg.ConvertAstToSearchArg;
+import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.hadoop.hive.ql.plan.ExprNodeGenericFuncDesc;
 import org.apache.hadoop.hive.ql.plan.TableScanDesc;
@@ -41,15 +42,18 @@ import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotsTable;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.hadoop.HadoopInputFile;
-import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.expediagroup.hiveberg.SystemTableUtil.getVirtualColumnName;
+import static com.expediagroup.hiveberg.SystemTableUtil.recordWithVirtualColumn;
+import static com.expediagroup.hiveberg.SystemTableUtil.schemaWithVirtualColumn;
 import static com.expediagroup.hiveberg.TableResolverUtil.pathAsURI;
 import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromJob;
 
@@ -64,11 +68,17 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
   static final String TABLE_LOCATION = "location";
 
   private Table table;
+  private long currentSnapshotId;
+  private String virtualSnapshotIdColumnName;
 
   @Override
   public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
     table = resolveTableFromJob(job);
     URI location = pathAsURI(job.get(TABLE_LOCATION));
+
+    // Set defaults for virtual column
+    currentSnapshotId = table.currentSnapshot().snapshotId();
+    virtualSnapshotIdColumnName = getVirtualColumnName(job);
 
     String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
     List<CombinedScanTask> tasks;
@@ -83,8 +93,11 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
       SearchArgument sarg = ConvertAstToSearchArg.create(job, exprNodeDesc);
       Expression filter = IcebergFilterFactory.generateFilterExpression(sarg);
 
+      long snapshotIdToScan = extractSnapshotID(job, exprNodeDesc);
+
       tasks = Lists.newArrayList(table
           .newScan()
+          .useSnapshot(snapshotIdToScan)
           .select(readColumns)
           .filter(filter)
           .planTasks());
@@ -115,7 +128,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     private IcebergSplit split;
 
     private Iterator<FileScanTask> tasks;
-    private CloseableIterable<Record> reader;
+    private Iterable<Record> reader;
     private Iterator<Record> recordIterator;
     private Record currentRecord;
 
@@ -138,7 +151,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
       boolean reuseContainers = true; // FIXME: read from config
 
       IcebergReaderFactory readerFactory = new IcebergReaderFactory();
-      reader = readerFactory.createReader(file, currentTask, inputFile, tableSchema, reuseContainers);
+      reader = readerFactory.createReader(file, currentTask, inputFile, tableSchema, reuseContainers, table);
       recordIterator = reader.iterator();
     }
 
@@ -146,7 +159,11 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     public boolean next(Void key, IcebergWritable value) {
       if (recordIterator.hasNext()) {
         currentRecord = recordIterator.next();
-        value.setRecord(currentRecord);
+        if (table instanceof SnapshotsTable) {
+          value.setRecord(currentRecord);
+        } else {
+          value.setRecord(recordWithVirtualColumn(currentRecord, currentSnapshotId, table.schema(), virtualSnapshotIdColumnName));
+        }
         return true;
       }
 
@@ -168,7 +185,11 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     public IcebergWritable createValue() {
       IcebergWritable record = new IcebergWritable();
       record.setRecord(currentRecord);
-      record.setSchema(table.schema());
+      if(table instanceof SnapshotsTable) {
+        record.setSchema(table.schema());
+      } else {
+        record.setSchema(schemaWithVirtualColumn(table.schema(), virtualSnapshotIdColumnName));
+      }
       return record;
     }
 
@@ -250,6 +271,23 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     public CombinedScanTask getTask() {
       return task;
     }
+  }
+
+  /**
+   * Search all the leaves of the expression for the 'snapshot_id' column and extract value.
+   * If snapshot_id column not found, return current table snapshot ID.
+   */
+  private long extractSnapshotID(Configuration conf, ExprNodeGenericFuncDesc exprNodeDesc) {
+    SearchArgument sarg = ConvertAstToSearchArg.create(conf, exprNodeDesc);
+    List<PredicateLeaf> leaves = sarg.getLeaves();
+    for(PredicateLeaf leaf : leaves) {
+      if(leaf.getColumnName().equals(virtualSnapshotIdColumnName)) {
+        currentSnapshotId = (long) leaf.getLiteral();
+        return (long) leaf.getLiteral();
+      }
+    }
+    currentSnapshotId = table.currentSnapshot().snapshotId();
+    return table.currentSnapshot().snapshotId();
   }
 
 }

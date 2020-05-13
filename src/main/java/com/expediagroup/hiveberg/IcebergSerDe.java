@@ -29,9 +29,11 @@ import org.apache.hadoop.hive.serde2.SerDeStats;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.io.Writable;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotsTable;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Types;
 
+import static com.expediagroup.hiveberg.SystemTableUtil.getVirtualColumnName;
 import static com.expediagroup.hiveberg.TableResolverUtil.resolveTableFromConfiguration;
 
 public class IcebergSerDe extends AbstractSerDe {
@@ -48,11 +50,22 @@ public class IcebergSerDe extends AbstractSerDe {
       throw new UncheckedIOException("Unable to resolve table from configuration: ", e);
     }
     this.schema = table.schema();
+    if(table instanceof SnapshotsTable) {
+      try {
+        this.inspector = new IcebergObjectInspectorGenerator().createObjectInspector(schema);
+      } catch (Exception e) {
+        throw new SerDeException(e);
+      }
+    } else {
+      List<Types.NestedField> columns = new ArrayList<>(schema.columns());
+      columns.add(Types.NestedField.optional(Integer.MAX_VALUE, getVirtualColumnName(serDeProperties), Types.LongType.get()));
+      Schema withVirtualColumn = new Schema(columns);
 
-    try {
-      this.inspector = new IcebergObjectInspectorGenerator().createObjectInspector(schema);
-    } catch (Exception e) {
-      throw new SerDeException(e);
+      try {
+        this.inspector = new IcebergObjectInspectorGenerator().createObjectInspector(withVirtualColumn);
+      } catch (Exception e) {
+        throw new SerDeException(e);
+      }
     }
   }
 

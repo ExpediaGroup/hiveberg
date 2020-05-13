@@ -25,6 +25,7 @@ import org.apache.hadoop.hive.ql.io.sarg.ExpressionTree;
 import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expressions;
 
 import static org.apache.iceberg.expressions.Expressions.and;
 import static org.apache.iceberg.expressions.Expressions.equal;
@@ -130,6 +131,9 @@ public class IcebergFilterFactory {
    */
   private static Expression translateLeaf(PredicateLeaf leaf) {
     String column = leaf.getColumnName();
+    if(column.equals("snapshot__id")) {
+      return Expressions.alwaysTrue();
+    }
     switch (leaf.getOperator()){
       case EQUALS:
         return equal(column, leaf.getLiteral());
