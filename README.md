@@ -51,7 +51,7 @@ CREATE TABLE source_db.table_a
   LOCATION 'path_to_iceberg_data_warehouse';
   TBLPROPERTIES('iceberg.catalog' = ...)
 ```
-Include the same `TBLPROPERTIES` as described in the 'Setting TBLPROPERTIES correctly` section, depending on how you've created your Iceberg table.
+Include the same `TBLPROPERTIES` as described in the 'Setting TBLPROPERTIES correctly' section, depending on how you've created your Iceberg table.
 
 ### Predicate Pushdown
 Pushdown of the HiveSQL `WHERE` clause has been implemented so that filters are pushed to the Iceberg `TableScan` level as well as the Parquet `Reader`. ORC implementations are still in the works.
