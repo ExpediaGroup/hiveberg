@@ -71,7 +71,7 @@ CREATE TABLE source_db.table_a__snapshots
   LOCATION 'path_to_original_data_table'
     TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='path_to_original_table_warehouse')
 ```
-Notes: 
+#### Notes
 - It is important that the table name ends with `__snapshots` as the `InputFormat` uses this to determine when to load the snapshot metadata table instead of the regular data table. 
 - If you want to create a regular data table with a name that ends in `__snapshots` but do **not** want to load the snapshots table, you can override this default behaviour by setting the `iceberg.snapshots.table=false` in the `TBLPROPERTIES`.
 
