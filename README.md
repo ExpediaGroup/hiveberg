@@ -31,17 +31,17 @@ For example, if you created the Hive table as shown above then your Iceberg tabl
 TableIdentifier id = TableIdentifier.parse("source_db.table_a");
 ```
 
-#### Setting TBLPROPERTIES correctly
-You need to set the `TBLPROPERTIES` differently depending on how you've created your Iceberg table.
-- If you used **HadoopTables** to create your Iceberg table, add one extra configuration: 
-```sql 
-    TBLPROPERTIES('iceberg.catalog' = 'hadoop.tables')
+#### Setting TBLPROPERTIES
+You need to set one additional table property when using Hiveberg: 
+- If you used **HadoopTables** to create your original Iceberg table, set this property:
+``` 
+TBLPROPERTIES('iceberg.catalog'='hadoop.tables')
 ```
-- If you used **HadoopCatalog** to create your Iceberg table, add these extra configurations: 
-```sql 
-    TBLPROPERTIES('iceberg.catalog' = 'hadoop.catalog', 'iceberg.warehouse.location' = 'path_to_warehouse_location')
+
+- If you used **HadoopCatalog** to create your original Iceberg table, set this property:
+``` 
+TBLPROPERTIES('iceberg.catalog'='hadoop.catalog')
 ```
-These properties need to be set so the `InputFormat` can load the Iceberg table using the correct class.
 
 ### IcebergStorageHandler
 This is implemented as a simplified option for creating Hiveberg tables. The Hive DDL should instead look like:
@@ -69,7 +69,7 @@ You can view snapshot metadata from your table by creating a `__snapshots` syste
 CREATE TABLE source_db.table_a__snapshots
   STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler'
   LOCATION 'path_to_original_data_table'
-    TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='path_to_original_table_warehouse')
+    TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')
 ```
 #### Notes
 - It is important that the table name ends with `__snapshots` as the `InputFormat` uses this to determine when to load the snapshot metadata table instead of the regular data table. 
