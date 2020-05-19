@@ -34,6 +34,7 @@ final class TableResolverUtil {
   static final String HADOOP_TABLES = "hadoop.tables";
   static final String HIVE_CATALOG = "hive.catalog";
   static final String SNAPSHOT_TABLE = "iceberg.snapshots.table";
+  static final String SNAPSHOT_TABLE_SUFFIX = "__snapshots";
   static final String TABLE_LOCATION = "location";
   static final String TABLE_NAME = "name";
 
@@ -64,8 +65,8 @@ final class TableResolverUtil {
       case HADOOP_CATALOG:
         String tableName = properties.getProperty(TABLE_NAME);
         TableIdentifier id = TableIdentifier.parse(tableName);
-        if(tableName.endsWith("__snapshots")) {
-          if(properties.getProperty(SNAPSHOT_TABLE, "true").equals("false")) {
+        if(tableName.endsWith(SNAPSHOT_TABLE_SUFFIX)) {
+          if(properties.getProperty(SNAPSHOT_TABLE, "true").equalsIgnoreCase("false")) {
             String tablePath = id.toString().replaceAll("\\.","/");
             URI warehouseLocation = pathAsURI(tableLocation.getPath().replaceAll(tablePath, ""));
             HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
@@ -88,7 +89,7 @@ final class TableResolverUtil {
   static Table resolveMetadataTable(Configuration conf, String location, String tableName) throws IOException {
     URI warehouseLocation = pathAsURI(extractWarehousePath(location, tableName));
     HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
-    String baseTableName = StringUtils.removeEnd(tableName, "__snapshots");
+    String baseTableName = StringUtils.removeEnd(tableName, SNAPSHOT_TABLE_SUFFIX);
 
     TableIdentifier snapshotsId = TableIdentifier.parse(baseTableName + ".snapshots");
     return catalog.loadTable(snapshotsId);
@@ -114,7 +115,7 @@ final class TableResolverUtil {
   }
 
   protected static String extractWarehousePath(String location, String tableName) {
-    String tablePath = tableName.replaceAll("\\.","/").replaceAll("__snapshots", "");
+    String tablePath = tableName.replaceAll("\\.","/").replaceAll(SNAPSHOT_TABLE_SUFFIX, "");
     return location.replaceAll(tablePath, "");
   }
 }
