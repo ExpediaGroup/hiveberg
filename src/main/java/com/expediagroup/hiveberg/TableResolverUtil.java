@@ -27,12 +27,16 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopTables;
 
+import static java.lang.Boolean.TRUE;
+import static java.lang.Boolean.parseBoolean;
+
 final class TableResolverUtil {
 
   static final String CATALOG_NAME = "iceberg.catalog";
   static final String HADOOP_CATALOG = "hadoop.catalog";
   static final String HADOOP_TABLES = "hadoop.tables";
   static final String HIVE_CATALOG = "hive.catalog";
+  static final String ICEBERG_SNAPSHOTS_TABLE_SUFFIX = ".snapshots";
   static final String SNAPSHOT_TABLE = "iceberg.snapshots.table";
   static final String SNAPSHOT_TABLE_SUFFIX = "__snapshots";
   static final String TABLE_LOCATION = "location";
@@ -66,7 +70,7 @@ final class TableResolverUtil {
         String tableName = properties.getProperty(TABLE_NAME);
         TableIdentifier id = TableIdentifier.parse(tableName);
         if(tableName.endsWith(SNAPSHOT_TABLE_SUFFIX)) {
-          if(properties.getProperty(SNAPSHOT_TABLE, "true").equalsIgnoreCase("false")) {
+          if(!parseBoolean(properties.getProperty(SNAPSHOT_TABLE, TRUE.toString()))) {
             String tablePath = id.toString().replaceAll("\\.","/");
             URI warehouseLocation = pathAsURI(tableLocation.getPath().replaceAll(tablePath, ""));
             HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
@@ -91,7 +95,7 @@ final class TableResolverUtil {
     HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
     String baseTableName = StringUtils.removeEnd(tableName, SNAPSHOT_TABLE_SUFFIX);
 
-    TableIdentifier snapshotsId = TableIdentifier.parse(baseTableName + ".snapshots");
+    TableIdentifier snapshotsId = TableIdentifier.parse(baseTableName + ICEBERG_SNAPSHOTS_TABLE_SUFFIX);
     return catalog.loadTable(snapshotsId);
   }
 
