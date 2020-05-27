@@ -94,9 +94,7 @@ public class TestReadSnapshotTable {
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
         .toString());
 
     shell.execute(new StringBuilder()
@@ -104,9 +102,7 @@ public class TestReadSnapshotTable {
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a__snapshots");
@@ -131,9 +127,7 @@ public class TestReadSnapshotTable {
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a__snapshots")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog','iceberg.snapshots.table'='false', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog','iceberg.snapshots.table'='false')")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a__snapshots");
@@ -150,9 +144,7 @@ public class TestReadSnapshotTable {
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
         .toString());
 
     shell.execute(new StringBuilder()
@@ -160,9 +152,7 @@ public class TestReadSnapshotTable {
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
         .toString());
 
     List<Object[]> resultLatestTable = shell.executeStatement("SELECT * FROM source_db.table_a");
@@ -194,10 +184,8 @@ public class TestReadSnapshotTable {
         .append("CREATE TABLE source_db.table_b ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
-        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.hive.snapshot.virtual.column.name' = 'metadata_snapshot_id', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_b")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.hive.snapshot.virtual.column.name' = 'metadata_snapshot_id')")
         .toString());
 
     List<Object[]> resultLatestTable = shell.executeStatement("SELECT * FROM source_db.table_b");

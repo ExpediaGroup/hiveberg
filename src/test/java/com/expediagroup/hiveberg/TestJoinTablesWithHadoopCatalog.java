@@ -104,9 +104,7 @@ public class TestJoinTablesWithHadoopCatalog {
         .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
         .toString());
 
     shell.execute(new StringBuilder()
@@ -117,9 +115,7 @@ public class TestJoinTablesWithHadoopCatalog {
         .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_b")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT table_a.first_name, table_b.name, table_b.salary " +
@@ -137,9 +133,7 @@ public class TestJoinTablesWithHadoopCatalog {
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
         .toString());
 
     shell.execute(new StringBuilder()
@@ -147,9 +141,7 @@ public class TestJoinTablesWithHadoopCatalog {
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath() + "/source_db/table_b")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT table_a.first_name, table_b.name, table_b.salary " +
