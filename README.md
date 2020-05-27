@@ -54,7 +54,7 @@ CREATE TABLE source_db.table_a
 Include the same `TBLPROPERTIES` as described in the 'Setting TBLPROPERTIES correctly' section, depending on how you've created your Iceberg table.
 
 ### Predicate Pushdown
-Pushdown of the HiveSQL `WHERE` clause has been implemented so that filters are pushed to the Iceberg `TableScan` level as well as the Parquet `Reader`. ORC implementations are still in the works.
+Pushdown of the HiveSQL `WHERE` clause has been implemented so that filters are pushed to the Iceberg `TableScan` level as well as the Parquet and ORC `Reader`'s.
 **Note:** Predicate pushdown to the Iceberg table scan is only activated when using the `IcebergStorageHandler`. 
 
 
