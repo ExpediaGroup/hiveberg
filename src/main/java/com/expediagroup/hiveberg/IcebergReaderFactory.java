@@ -64,11 +64,11 @@ class IcebergReaderFactory {
     return builder.build();
   }
 
-  //Predicate pushdown support for ORC can be tracked here: https://github.com/apache/incubator-iceberg/issues/787
   private CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     ORC.ReadBuilder builder = ORC.read(file)
 //            .createReaderFunc() // FIXME: implement
         .project(schema)
+        .filter(task.residual())
         .split(task.start(), task.length());
 
     return builder.build();

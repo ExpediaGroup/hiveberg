@@ -16,7 +16,7 @@
   <properties>
     <!-- this requires https://github.com/ExpediaGroup/incubator-iceberg/tree/build-hiveberg-modules to be built and installed
       locally -->
-    <iceberg.version>0.7.2-incubating</iceberg.version>
+    <iceberg.version>0.7.3-incubating</iceberg.version>
     <hive.version>2.3.6</hive.version>
   </properties>
 
@@ -57,12 +57,6 @@
     <dependency>
       <groupId>org.apache.iceberg</groupId>
       <artifactId>iceberg-data</artifactId>
-      <version>${iceberg.version}</version>
-      <classifier>all</classifier>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.iceberg</groupId>
-      <artifactId>iceberg-hive</artifactId>
       <version>${iceberg.version}</version>
       <classifier>all</classifier>
     </dependency>
