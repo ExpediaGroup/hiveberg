@@ -77,7 +77,11 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     URI location = pathAsURI(job.get(TABLE_LOCATION));
 
     // Set defaults for virtual column
-    currentSnapshotId = table.currentSnapshot().snapshotId();
+    try {
+      currentSnapshotId = table.currentSnapshot().snapshotId();
+    } catch (NullPointerException e) {
+      LOG.warn("No snapshot available for table - table is empty.");
+    }
     virtualSnapshotIdColumnName = getVirtualColumnName(job);
 
     String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
@@ -163,6 +167,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
           value.setRecord(currentRecord);
         } else {
           value.setRecord(recordWithVirtualColumn(currentRecord, currentSnapshotId, table.schema(), virtualSnapshotIdColumnName));
+          LOG.info("Set virtual column id to: " + currentSnapshotId);
         }
         return true;
       }
