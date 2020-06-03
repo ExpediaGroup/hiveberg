@@ -80,7 +80,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     // Set defaults for virtual column
     Snapshot currentSnapshot = table.currentSnapshot();
     if(currentSnapshot != null) {
-      currentSnapshotId = table.currentSnapshot().snapshotId();
+      currentSnapshotId = currentSnapshot.snapshotId();
     }
     virtualSnapshotIdColumnName = getVirtualColumnName(job);
 
