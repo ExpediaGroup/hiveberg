@@ -42,6 +42,7 @@ import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotsTable;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.Record;
@@ -77,7 +78,10 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     URI location = pathAsURI(job.get(TABLE_LOCATION));
 
     // Set defaults for virtual column
-    currentSnapshotId = table.currentSnapshot().snapshotId();
+    Snapshot currentSnapshot = table.currentSnapshot();
+    if(currentSnapshot != null) {
+      currentSnapshotId = currentSnapshot.snapshotId();
+    }
     virtualSnapshotIdColumnName = getVirtualColumnName(job);
 
     String[] readColumns = ColumnProjectionUtils.getReadColumnNames(job);
@@ -163,6 +167,7 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
           value.setRecord(currentRecord);
         } else {
           value.setRecord(recordWithVirtualColumn(currentRecord, currentSnapshotId, table.schema(), virtualSnapshotIdColumnName));
+          LOG.debug("Set virtual column id to: " + currentSnapshotId);
         }
         return true;
       }
