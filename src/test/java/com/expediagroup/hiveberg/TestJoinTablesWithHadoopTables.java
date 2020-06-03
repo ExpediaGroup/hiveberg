@@ -115,8 +115,6 @@ public class TestJoinTablesWithHadoopTables {
         .append(")")
         .toString());
 
-    List<Object[]> resultx = shell.executeStatement("select * from source_db.table_b");
-
     List<Object[]> result = shell.executeStatement("SELECT table_a.first_name, table_b.name, table_b.salary " +
         "FROM source_db.table_a, source_db.table_b WHERE table_a.salary = table_b.salary");
     assertEquals(2, result.size());

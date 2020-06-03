@@ -21,7 +21,6 @@ import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
