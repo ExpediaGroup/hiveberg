@@ -163,19 +163,14 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     public boolean next(Void key, IcebergWritable value) {
       if (recordIterator.hasNext()) {
         currentRecord = recordIterator.next();
-        if (table instanceof SnapshotsTable) {
-          value.setRecord(currentRecord);
-        } else {
-          value.setRecord(recordWithVirtualColumn(currentRecord, currentSnapshotId, table.schema(), virtualSnapshotIdColumnName));
-          LOG.debug("Set virtual column id to: " + currentSnapshotId);
-        }
+        value.setRecord(resolveRecord());
         return true;
       }
 
       if(tasks.hasNext()){
         nextTask();
         currentRecord = recordIterator.next();
-        value.setRecord(currentRecord);
+        value.setRecord(resolveRecord());
         return true;
       }
       return false;
@@ -211,6 +206,14 @@ public class IcebergInputFormat implements InputFormat,  CombineHiveInputFormat.
     @Override
     public float getProgress() throws IOException {
       return 0;
+    }
+
+    private Record resolveRecord() {
+      if (table instanceof SnapshotsTable) {
+        return currentRecord;
+      } else {
+        return recordWithVirtualColumn(currentRecord, currentSnapshotId, table.schema(), virtualSnapshotIdColumnName);
+      }
     }
   }
 
