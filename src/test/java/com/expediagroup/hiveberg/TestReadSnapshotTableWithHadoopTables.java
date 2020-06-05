@@ -15,6 +15,7 @@
  */
 package com.expediagroup.hiveberg;
 
+import com.google.common.collect.Lists;
 import com.klarna.hiverunner.HiveShell;
 import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
@@ -22,11 +23,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.hadoop.HadoopTables;
@@ -42,7 +43,7 @@ import static org.apache.iceberg.types.Types.NestedField.required;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(StandaloneHiveRunner.class)
-public class TestInputFormatWithMultipleTasks {
+public class TestReadSnapshotTableWithHadoopTables {
 
   @HiveSQL(files = {}, autoStart = true)
   private HiveShell shell;
@@ -51,8 +52,6 @@ public class TestInputFormatWithMultipleTasks {
   public TemporaryFolder temp = new TemporaryFolder();
 
   private File tableLocation;
-  private IcebergInputFormat format = new IcebergInputFormat();
-  private JobConf conf = new JobConf();
   private long snapshotId;
 
   @Before
@@ -68,38 +67,68 @@ public class TestInputFormatWithMultipleTasks {
     List<Record> data = new ArrayList<>();
     data.add(TestHelpers.createSimpleRecord(1L, "Michael"));
     data.add(TestHelpers.createSimpleRecord(2L, "Andy"));
+    data.add(TestHelpers.createSimpleRecord(3L, "Berta"));
 
     DataFile fileA = TestHelpers.writeFile(temp.newFile(), table, null, FileFormat.PARQUET, data);
     table.newAppend().appendFile(fileA).commit();
+    table.newAppend().appendFile(fileA).commit();
 
-    DataFile fileB = TestHelpers.writeFile(temp.newFile(), table, null, FileFormat.PARQUET, data);
-    table.newAppend().appendFile(fileB).commit();
-
-    snapshotId = table.currentSnapshot().snapshotId();
+    List<Snapshot> snapshots = Lists.newArrayList(table.snapshots().iterator());
+    snapshotId = snapshots.get(0).snapshotId();
   }
 
   @Test
-  public void testAllRowsIncludeSnapshotId () {
+  public void testReadSnapshotTable () {
     shell.execute("CREATE DATABASE source_db");
+
     shell.execute(new StringBuilder()
         .append("CREATE TABLE source_db.table_a ")
-        .append("ROW FORMAT SERDE 'com.expediagroup.hiveberg.IcebergSerDe' ")
-        .append("STORED AS ")
-        .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
-        .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
         .append(tableLocation.getAbsolutePath())
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.tables'")
-        .append(")")
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.tables')")
         .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a");
+    shell.execute(new StringBuilder()
+        .append("CREATE TABLE source_db.table_a__snapshots ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath())
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.tables')")
+        .toString());
 
-    assertEquals(4, result.size());
-    assertEquals(snapshotId, result.get(0)[2]);
-    assertEquals(snapshotId, result.get(1)[2]);
-    assertEquals(snapshotId, result.get(2)[2]);
-    assertEquals(snapshotId, result.get(3)[2]);
+    List<Object[]> result = shell.executeStatement("SELECT * FROM source_db.table_a__snapshots");
+
+    assertEquals(2, result.size());
   }
 
+  @Test
+  public void testTimeTravelRead () {
+    shell.execute("CREATE DATABASE source_db");
+
+    shell.execute(new StringBuilder()
+        .append("CREATE TABLE source_db.table_a ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath())
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.tables')")
+        .toString());
+
+    shell.execute(new StringBuilder()
+        .append("CREATE TABLE source_db.table_a__snapshots ")
+        .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
+        .append("LOCATION '")
+        .append(tableLocation.getAbsolutePath())
+        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.tables')")
+        .toString());
+
+    List<Object[]> resultLatestTable = shell.executeStatement("SELECT * FROM source_db.table_a");
+    assertEquals(6, resultLatestTable.size());
+
+    List<Object[]> resultFirstSnapshot = shell.executeStatement("SELECT * FROM source_db.table_a WHERE SNAPSHOT__ID = " + snapshotId);
+    assertEquals(3, resultFirstSnapshot.size());
+
+    List<Object[]> resultLatestSnapshotAgain = shell.executeStatement("SELECT * FROM source_db.table_a");
+    assertEquals(6, resultLatestSnapshotAgain.size());
+  }
 }

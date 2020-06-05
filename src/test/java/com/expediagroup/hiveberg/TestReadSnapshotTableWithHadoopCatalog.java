@@ -45,7 +45,7 @@ import static org.apache.iceberg.types.Types.NestedField.required;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(StandaloneHiveRunner.class)
-public class TestReadSnapshotTable {
+public class TestReadSnapshotTableWithHadoopCatalog {
 
   @HiveSQL(files = {}, autoStart = true)
   private HiveShell shell;
