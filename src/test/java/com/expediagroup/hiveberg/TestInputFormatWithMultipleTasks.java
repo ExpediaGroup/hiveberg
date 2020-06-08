@@ -15,7 +15,6 @@
  */
 package com.expediagroup.hiveberg;
 
-import com.google.common.collect.Lists;
 import com.klarna.hiverunner.HiveShell;
 import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
@@ -23,9 +22,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.hadoop.mapred.InputSplit;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RecordReader;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
@@ -42,7 +38,6 @@ import org.junit.runner.RunWith;
 
 import static org.apache.iceberg.types.Types.NestedField.optional;
 import static org.apache.iceberg.types.Types.NestedField.required;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(StandaloneHiveRunner.class)
@@ -55,8 +50,6 @@ public class TestInputFormatWithMultipleTasks {
   public TemporaryFolder temp = new TemporaryFolder();
 
   private File tableLocation;
-  private IcebergInputFormat format = new IcebergInputFormat();
-  private JobConf conf = new JobConf();
   private long snapshotId;
 
   @Before
