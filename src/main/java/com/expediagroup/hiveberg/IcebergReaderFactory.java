@@ -23,6 +23,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.avro.DataReader;
+import org.apache.iceberg.data.orc.GenericOrcReader;
 import org.apache.iceberg.data.parquet.GenericParquetReaders;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.InputFile;
@@ -66,7 +67,7 @@ class IcebergReaderFactory {
 
   private CloseableIterable buildOrcReader(FileScanTask task, InputFile file, Schema schema, boolean reuseContainers) {
     ORC.ReadBuilder builder = ORC.read(file)
-//            .createReaderFunc() // FIXME: implement
+        .createReaderFunc(fileSchema -> GenericOrcReader.buildReader(schema, fileSchema))
         .project(schema)
         .filter(task.residual())
         .split(task.start(), task.length());

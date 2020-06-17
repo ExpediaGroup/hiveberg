@@ -115,11 +115,11 @@ public class TestHelpers {
     return record;
   }
 
-  public static Record createCustomRecord(Schema schema, List<?> dataValues) {
+  public static Record createCustomRecord(Schema schema, Object... dataValues) {
     GenericRecord record = GenericRecord.create(schema);
     List<Types.NestedField> fields = schema.columns();
-    for(int i = 0; i < fields.size(); i++) {
-      record.setField(fields.get(i).name(), dataValues.get(i));
+    for (int i = 0; i < fields.size(); i++) {
+      record.set(i, dataValues[i]);
     }
     return record;
   }

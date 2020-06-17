@@ -21,7 +21,6 @@ import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.DataFile;
@@ -75,16 +74,16 @@ public class TestJoinTablesWithHadoopCatalog {
     Table tableB = catalog.createTable(idB, schemaB, spec);
 
     List<Record> tableAData = new ArrayList<>();
-    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Ella", 3000L, 1L)));
-    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Jean", 5000L, 2L)));
-    tableAData.add(TestHelpers.createCustomRecord(schemaA, Arrays.asList("Joe", 2000L, 3L)));
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, "Ella", 3000L, 1L));
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, "Jean", 5000L, 2L));
+    tableAData.add(TestHelpers.createCustomRecord(schemaA, "Joe", 2000L, 3L));
 
     DataFile fileA = TestHelpers.writeFile(temp.newFile(), tableA, null, FileFormat.PARQUET, tableAData);
 
     List<Record> tableBData = new ArrayList<>();
-    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Michael", 3000L)));
-    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Andy", 3000L)));
-    tableBData.add(TestHelpers.createCustomRecord(schemaB, Arrays.asList("Berta", 4000L)));
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, "Michael", 3000L));
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, "Andy", 3000L));
+    tableBData.add(TestHelpers.createCustomRecord(schemaB, "Berta", 4000L));
 
     DataFile fileB = TestHelpers.writeFile(temp.newFile(), tableB, null, FileFormat.PARQUET, tableBData);
 
@@ -103,8 +102,7 @@ public class TestJoinTablesWithHadoopCatalog {
         .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
         .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
         .append("LOCATION '")
-        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a'")
         .toString());
 
     shell.execute(new StringBuilder()
@@ -114,8 +112,7 @@ public class TestJoinTablesWithHadoopCatalog {
         .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
         .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
         .append("LOCATION '")
-        .append(tableLocation.getAbsolutePath() + "/source_db/table_b")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_b'")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT table_a.first_name, table_b.name, table_b.salary " +
@@ -132,16 +129,14 @@ public class TestJoinTablesWithHadoopCatalog {
         .append("CREATE TABLE source_db.table_a ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
-        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a'")
         .toString());
 
     shell.execute(new StringBuilder()
         .append("CREATE TABLE source_db.table_b ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
-        .append(tableLocation.getAbsolutePath() + "/source_db/table_b")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog')")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_b'")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT table_a.first_name, table_b.name, table_b.salary " +

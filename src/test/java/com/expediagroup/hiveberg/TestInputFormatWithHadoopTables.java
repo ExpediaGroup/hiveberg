@@ -21,6 +21,8 @@ import com.klarna.hiverunner.StandaloneHiveRunner;
 import com.klarna.hiverunner.annotations.HiveSQL;
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.Month;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.hadoop.mapred.InputSplit;
@@ -62,16 +64,16 @@ public class TestInputFormatWithHadoopTables {
   public void before() throws IOException {
     tableLocation = temp.newFolder();
     Schema schema = new Schema(required(1, "id", Types.LongType.get()),
-        optional(2, "data", Types.StringType.get()));
+        optional(2, "date_column", Types.DateType.get()));
     PartitionSpec spec = PartitionSpec.unpartitioned();
 
     HadoopTables tables = new HadoopTables();
     Table table = tables.create(schema, spec, tableLocation.getAbsolutePath());
 
     List<Record> data = new ArrayList<>();
-    data.add(TestHelpers.createSimpleRecord(1L, "Michael"));
-    data.add(TestHelpers.createSimpleRecord(2L, "Andy"));
-    data.add(TestHelpers.createSimpleRecord(3L, "Berta"));
+    data.add(TestHelpers.createCustomRecord(schema, 1L, LocalDate.of(2015, Month.JANUARY, 1)));
+    data.add(TestHelpers.createCustomRecord(schema, 2L,  LocalDate.of(2016, Month.JANUARY, 1)));
+    data.add(TestHelpers.createCustomRecord(schema, 3L,  LocalDate.of(2017, Month.JANUARY, 1)));
 
     DataFile fileA = TestHelpers.writeFile(temp.newFile(), table, null, FileFormat.PARQUET, data);
     table.newAppend().appendFile(fileA).commit();
@@ -92,12 +94,12 @@ public class TestInputFormatWithHadoopTables {
         .append(")")
         .toString());
 
-    List<Object[]> result = shell.executeStatement("SELECT id, data FROM source_db.table_a");
+    List<Object[]> result = shell.executeStatement("SELECT id, date_column FROM source_db.table_a");
 
     assertEquals(3, result.size());
-    assertArrayEquals(new Object[]{1L, "Michael"}, result.get(0));
-    assertArrayEquals(new Object[]{2L, "Andy"}, result.get(1));
-    assertArrayEquals(new Object[]{3L, "Berta"}, result.get(2));
+    assertArrayEquals(new Object[]{1L, "2015-01-01"}, result.get(0));
+    assertArrayEquals(new Object[]{2L, "2016-01-01"}, result.get(1));
+    assertArrayEquals(new Object[]{3L, "2017-01-01"}, result.get(2));
   }
 
   @Test
@@ -137,13 +139,6 @@ public class TestInputFormatWithHadoopTables {
   @Test(expected = IllegalArgumentException.class)
   public void testGetSplitsNoLocation() throws IOException {
     conf.set("iceberg.catalog", "hadoop.tables");
-    conf.set("name", "source_db.table_a");
-    format.getSplits(conf, 1);
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void testGetSplitsNoCatalog() throws IOException {
-    conf.set("location", "file:" + tableLocation);
     conf.set("name", "source_db.table_a");
     format.getSplits(conf, 1);
   }

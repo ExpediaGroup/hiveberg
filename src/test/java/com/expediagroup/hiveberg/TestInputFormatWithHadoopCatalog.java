@@ -91,10 +91,7 @@ public class TestInputFormatWithHadoopCatalog {
         .append("CREATE TABLE source_db.table_a ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
-        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a'")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT id, data FROM source_db.table_a");
@@ -115,10 +112,7 @@ public class TestInputFormatWithHadoopCatalog {
         .append("INPUTFORMAT 'com.expediagroup.hiveberg.IcebergInputFormat' ")
         .append("OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat' ")
         .append("LOCATION '")
-        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a'")
         .toString());
 
     List<Object[]> result = shell.executeStatement("SELECT id, data FROM source_db.table_a");
@@ -134,8 +128,6 @@ public class TestInputFormatWithHadoopCatalog {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
     conf.set("location", tableLocation.getAbsolutePath() + "/source_db/table_a");
-    conf.set("iceberg.warehouse.location", tableLocation.getAbsolutePath());
-    conf.set("iceberg.catalog", "hadoop.catalog");
     conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     assertEquals(splits.length, 1);
@@ -146,8 +138,6 @@ public class TestInputFormatWithHadoopCatalog {
     IcebergInputFormat format = new IcebergInputFormat();
     JobConf conf = new JobConf();
     conf.set("location", tableLocation.getAbsolutePath() + "/source_db/table_a");
-    conf.set("iceberg.warehouse.location", tableLocation.getAbsolutePath());
-    conf.set("iceberg.catalog", "hadoop.catalog");
     conf.set("name", "source_db.table_a");
     InputSplit[] splits = format.getSplits(conf, 1);
     RecordReader reader = format.getRecordReader(splits[0], conf, null);
@@ -167,19 +157,11 @@ public class TestInputFormatWithHadoopCatalog {
 
   @Test(expected = IllegalArgumentException.class)
   public void testGetSplitsNoLocation() throws IOException {
-    conf.set("iceberg.catalog", "hadoop.catalog");
     conf.set("iceberg.warehouse.location", "file:" + tableLocation);
     conf.set("name", "source_db.table_a");
     format.getSplits(conf, 1);
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testGetSplitsNoCatalog() throws IOException {
-    conf.set("iceberg.warehouse.location", "file:" + tableLocation);
-    conf.set("location", "file:" + tableLocation);
-    conf.set("name", "source_db.table_a");
-    format.getSplits(conf, 1);
-  }
 
   @After
   public void after() throws IOException {

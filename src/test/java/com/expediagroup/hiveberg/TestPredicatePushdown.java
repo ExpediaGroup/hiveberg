@@ -95,10 +95,7 @@ public class TestPredicatePushdown {
         .append("CREATE TABLE source_db.table_a ")
         .append("STORED BY 'com.expediagroup.hiveberg.IcebergStorageHandler' ")
         .append("LOCATION '")
-        .append(tableLocation.getAbsolutePath() + "/source_db/table_a")
-        .append("' TBLPROPERTIES ('iceberg.catalog'='hadoop.catalog', 'iceberg.warehouse.location'='")
-        .append(tableLocation.getAbsolutePath())
-        .append("')")
+        .append(tableLocation.getAbsolutePath() + "/source_db/table_a'")
         .toString());
 
     List<Object[]> resultFullTable = shell.executeStatement("SELECT * FROM source_db.table_a");

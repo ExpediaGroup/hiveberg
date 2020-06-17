@@ -27,8 +27,6 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopTables;
 
-import static java.lang.Boolean.TRUE;
-import static java.lang.Boolean.parseBoolean;
 
 final class TableResolverUtil {
 
@@ -47,45 +45,27 @@ final class TableResolverUtil {
 
   static Table resolveTableFromJob(JobConf conf) throws IOException {
     Properties properties = new Properties();
-    properties.setProperty(CATALOG_NAME, extractProperty(conf, CATALOG_NAME));
-    if(conf.get(CATALOG_NAME).equals(HADOOP_CATALOG)) {
-      properties.setProperty(SNAPSHOT_TABLE, conf.get(SNAPSHOT_TABLE, "true"));
-    }
+    properties.setProperty(CATALOG_NAME, conf.get(CATALOG_NAME, HADOOP_TABLES)); //Defaults to HadoopTables
+    properties.setProperty(SNAPSHOT_TABLE, conf.get(SNAPSHOT_TABLE, "true"));
     properties.setProperty(TABLE_LOCATION, extractProperty(conf, TABLE_LOCATION));
     properties.setProperty(TABLE_NAME, extractProperty(conf, TABLE_NAME));
     return resolveTableFromConfiguration(conf, properties);
   }
 
   static Table resolveTableFromConfiguration(Configuration conf, Properties properties) throws IOException {
-    String catalogName = properties.getProperty(CATALOG_NAME);
-    URI tableLocation = pathAsURI(properties.getProperty(TABLE_LOCATION));
+    String catalogName = properties.getProperty(CATALOG_NAME, HADOOP_TABLES);
+    String tableLocation = properties.getProperty(TABLE_LOCATION);
     String tableName = properties.getProperty(TABLE_NAME);
-    if (catalogName == null) {
-      throw new IllegalArgumentException("Catalog property: 'iceberg.catalog' not set in JobConf");
-    }
     switch (catalogName) {
       case HADOOP_TABLES:
         HadoopTables tables = new HadoopTables(conf);
-        if(tableName.endsWith(SNAPSHOT_TABLE_SUFFIX)) {
-          return tables.load(tableLocation.getPath() + "#snapshots");
-        }
-        return tables.load(tableLocation.getPath());
-      case HADOOP_CATALOG:
-        TableIdentifier id = TableIdentifier.parse(tableName);
-        if(tableName.endsWith(SNAPSHOT_TABLE_SUFFIX)) {
-          if(!parseBoolean(properties.getProperty(SNAPSHOT_TABLE, TRUE.toString()))) {
-            String tablePath = id.toString().replaceAll("\\.","/");
-            URI warehouseLocation = pathAsURI(tableLocation.getPath().replaceAll(tablePath, ""));
-            HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
-            return catalog.loadTable(id);
-          } else {
-            return resolveMetadataTableFromHadoopCatalog(conf, tableLocation.getPath(), tableName);
+        if (tableName.endsWith(SNAPSHOT_TABLE_SUFFIX)) {
+          if (!Boolean.parseBoolean(properties.getProperty(SNAPSHOT_TABLE, Boolean.TRUE.toString()))) {
+            return tables.load(tableLocation);
           }
-        } else {
-          URI warehouseLocation = pathAsURI(extractWarehousePath(tableLocation.getPath(), tableName));
-          HadoopCatalog catalog = new HadoopCatalog(conf, warehouseLocation.getPath());
-          return catalog.loadTable(id);
+          return tables.load(tableLocation + "#snapshots");
         }
+        return tables.load(tableLocation);
       case HIVE_CATALOG:
         //TODO Implement HiveCatalog
         return null;
@@ -100,10 +80,6 @@ final class TableResolverUtil {
 
     TableIdentifier snapshotsId = TableIdentifier.parse(baseTableName + ICEBERG_SNAPSHOTS_TABLE_SUFFIX);
     return catalog.loadTable(snapshotsId);
-  }
-
-  static Table resolveMetadataTableFromHadoopTables() {
-    return null;
   }
 
   static URI pathAsURI(String path) throws IOException {

@@ -15,6 +15,9 @@
  */
 package com.expediagroup.hiveberg.iterables;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -47,7 +50,8 @@ public class SnapshotIterable implements Iterable  {
    */
   private Record createSnapshotRecord(Snapshot snapshot) {
     Record snapRecord = GenericRecord.create(table.schema());
-    snapRecord.setField("committed_at", snapshot.timestampMillis());
+    snapRecord.setField("committed_at", OffsetDateTime.of(
+        LocalDateTime.ofEpochSecond(snapshot.timestampMillis(), 0, ZoneOffset.UTC), ZoneOffset.UTC));
     snapRecord.setField("snapshot_id", snapshot.snapshotId());
     snapRecord.setField("parent_id", snapshot.parentId());
     snapRecord.setField("operation", snapshot.operation());

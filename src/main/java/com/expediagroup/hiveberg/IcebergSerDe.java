@@ -17,6 +17,12 @@ package com.expediagroup.hiveberg;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -31,6 +37,7 @@ import org.apache.hadoop.io.Writable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SnapshotsTable;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import static com.expediagroup.hiveberg.SystemTableUtil.getVirtualColumnName;
@@ -84,16 +91,35 @@ public class IcebergSerDe extends AbstractSerDe {
     return null;
   }
 
+  private List<Object> row;
+
   @Override
   public Object deserialize(Writable writable) {
     IcebergWritable icebergWritable = (IcebergWritable) writable;
     Schema schema = icebergWritable.getSchema();
     List<Types.NestedField> fields = schema.columns();
-    List<Object> row = new ArrayList<>();
 
-    for(Types.NestedField field: fields){
-      Object obj = ((IcebergWritable) writable).getRecord().getField(field.name());
-      row.add(obj);
+    if(row == null || row.size() != fields.size()) {
+      row = new ArrayList<Object>(fields.size());
+    } else {
+      row.clear();
+    }
+
+    for (int i = 0; i < fields.size(); i++) {
+      Object obj = ((IcebergWritable) writable).getRecord().get(i);
+      Type fieldType = fields.get(i).type();
+      if (fieldType.equals(Types.DateType.get())) {
+        row.add(Date.valueOf((LocalDate) obj));
+      } else if (fieldType.equals(Types.TimestampType.withoutZone())) {
+        row.add(Timestamp.valueOf((LocalDateTime) obj));
+      } else if (fieldType.equals(Types.TimestampType.withZone())) {
+        LocalDateTime timestamp = ((OffsetDateTime) obj).toLocalDateTime();
+        row.add(Timestamp.valueOf(timestamp));
+      } else if (fieldType.equals(Types.TimeType.get())) {
+        row.add(((LocalTime) obj).toString());
+      } else {
+        row.add(obj);
+      }
     }
     return Collections.unmodifiableList(row);
   }
