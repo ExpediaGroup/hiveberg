@@ -1,7 +1,7 @@
 # Hive integration with [Iceberg](https://iceberg.apache.org/)
 
 ## Note
-__*The majority of the code from this project has been merged into the [Apache Iceberg codebase](https://github.com/apache/iceberg) where it has been available from release 0.10.0 onwards. Documentation can be found at [Using Hive with Iceberg](http://iceberg.apache.org/hive/). We highly recommend using the features in Iceberg itself, Hiveberg is not actively supported and will be archived in the near future when the few remaining missing features (mainly time travel from Hive) have been merged into the main Iceberg project.*__
+__*This project is now archived - the majority of the code from this project has been merged into the [Apache Iceberg codebase](https://github.com/apache/iceberg) where it has been available from release 0.10.0 onwards. Documentation can be found at [Using Hive with Iceberg](http://iceberg.apache.org/hive/). We highly recommend using the features in Iceberg itself and contributing any related changes there.*__
 
 ##  Overview
 The intention of this project is to demonstrate how Hive could be integrated with Iceberg. For now it provides a Hive Input Format which can be used to *read* 
